@@ -54,3 +54,11 @@ See deployment.md, contracts.md, integrations.md, relay.md, operations.md and se
 On 28 September 2026, the assembled local gate passed TypeScript, ESLint, 112 application tests across 17 files, 32 Foundry tests, and the production Next.js build. Foundry includes three 512-run fuzz tests and two 128-run stateful invariants (8,192 calls each). Six desktop/mobile Playwright checks passed across public navigation, all handbook routes, unknown-route HTTP 404, mobile overflow and anonymous API boundaries. Dependency audit reported zero vulnerabilities. The repository boundary check found no private strategy, environment secrets or private keys in tracked/publishable files.
 
 These results concern the implemented software and isolated fixtures. They do not substitute for the external activation steps above.
+
+## Hosting and CI readback
+
+The final Vercel deployment passed the same six desktop/mobile checks and the interactive acceptance, persistence, intake, filtering, export, recovery and navigation script against the public HTTPS alias. Health returns HTTP 200 with workspaceConfigured=false and executionEnabled=false. Database readiness returns HTTP 503 as intended until a dedicated database is configured.
+
+GitHub Actions did not start: GitHub reported failed recent account payments or an insufficient spending limit. Resolve account Billing & plans, then rerun the Verify workflow. This is a hosting-account blocker, not a passing CI run. Local and clean-install results are recorded separately.
+
+A fresh remote clone of implementation commit cfb4cff completed npm ci --ignore-scripts and the entire verify gate without local environment files: all 112 application tests, all 32 contracts, TypeScript, lint and production build passed. This confirms checkout reproducibility on the local Node 22/Foundry toolchain; it does not claim that GitHub's blocked runner executed.

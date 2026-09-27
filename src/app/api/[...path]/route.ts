@@ -777,7 +777,7 @@ async function handle(
         error: {
           code: "UNAVAILABLE",
           message:
-            "The service could not complete this request. Your existing records are unchanged; retry with the same operation identity.",
+            "The service could not confirm completion. Refresh the record and retry with the same operation identity.",
         },
       },
       503,
