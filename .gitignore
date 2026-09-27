@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.vercel/
+.env*
+!.env.example
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+internal/
+.ocean/
