@@ -7,7 +7,7 @@ export function sealDocument(bytes:Buffer,organizationId:string){const iv=random
 export function openDocument(value:{iv:Buffer;ciphertext:Buffer;tag:Buffer},organizationId:string){const cipher=createDecipheriv('aes-256-gcm',encryptionKey(),value.iv);cipher.setAAD(Buffer.from(organizationId));cipher.setAuthTag(value.tag);return Buffer.concat([cipher.update(value.ciphertext),cipher.final()]);}
 export async function storeDocument(db:Database,actor:Actor,file:File){
  requireRole(actor,['owner','approver','operator']);
- if(file.size<1||file.size>5242880)throw new ServiceError(400,'FILE_SIZE','Upload a file between 1 byte and 5 MB.');
+ if(file.size<1||file.size>4000000)throw new ServiceError(400,'FILE_SIZE','Upload a file between 1 byte and 4 MB.');
  const bytes=Buffer.from(await file.arrayBuffer());
  const allowed=['application/pdf','image/png','image/jpeg','text/csv','text/plain'];
  if(!allowed.includes(file.type))throw new ServiceError(400,'FILE_TYPE','Upload a PDF, PNG, JPEG, CSV, or text document.');
