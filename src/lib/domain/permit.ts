@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { encodeFunctionData, hashTypedData, parseAbi, type Hex } from "viem";
+import {
+  encodeFunctionData,
+  hashTypedData,
+  parseAbi,
+  type Hex,
+  type Abi,
+  type TypedData,
+} from "viem";
 const integer = z
   .string()
   .regex(/^(0|[1-9]\d*)$/)
@@ -62,8 +69,11 @@ export const permitFields = [
   ["destinationDomain", "uint32"],
   ["minFinalityThreshold", "uint32"],
 ] as const;
+export const permitTypedDataTypes: TypedData = {
+  PaymentPermit: permitFields.map(([name, type]) => ({ name, type })),
+};
 export const EXECUTE_SIGNATURE = `execute((${permitFields.map(([, type]) => type).join(",")}),bytes)`;
-export const moduleAbi = parseAbi([
+const moduleSignatures: readonly string[] = [
   `function execute((${permitFields.map(([name, type]) => `${type} ${name}`).join(",")}) p, bytes verifierSignature)`,
   `function paused() view returns (bool)`,
   `function policyEpoch() view returns (uint256)`,
@@ -72,7 +82,8 @@ export const moduleAbi = parseAbi([
   `function safe() view returns (address)`,
   `function token() view returns (address)`,
   `event PaymentExecuted(bytes32 indexed paymentId, bytes32 indexed permitDigest, bytes32 indexed obligationId, address recipient, uint256 amount, bytes32 route, bool destinationConfirmed)`,
-]);
+];
+export const moduleAbi: Abi = parseAbi(moduleSignatures);
 export function permitTuple(permit: ModulePermit) {
   const p = modulePermitSchema.parse(permit);
   return permitFields.map(([key]) => p[key]);
@@ -101,9 +112,7 @@ export function permitDigest(permit: ModulePermit): Hex {
       verifyingContract: p.module as Hex,
     },
     primaryType: "PaymentPermit",
-    types: {
-      PaymentPermit: permitFields.map(([name, type]) => ({ name, type })),
-    },
+    types: permitTypedDataTypes,
     message: Object.fromEntries(
       permitFields.map(([name, type]) => [
         name,

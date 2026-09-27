@@ -262,3 +262,69 @@ it("evaluation separates cohorts and never calls held invoice principal savings"
   expect(metrics[0].verifiedAvoidedUnits).toBe("0");
   expect(metrics[0].cohort).toBe("synthetic");
 });
+
+import { evaluateExperiment, commitment } from "../../src/lib/domain";
+it("requires a frozen identical point-in-time manifest and all three evaluation arms", () => {
+  const manifest = {
+    schemaVersion: 1 as const,
+    id: "eval-1",
+    frozenAt: "2026-09-27T00:00:00Z",
+    adjudicator: "independent-reviewer",
+    split: "held-out" as const,
+    cases: [
+      {
+        caseId: "case-1",
+        businessId: "business-1",
+        vendorId: "vendor-1",
+        cohort: "synthetic" as const,
+        label: "valid" as const,
+        inputCommitment: "0x" + "11".repeat(32),
+        asOf: "2026-09-26T00:00:00Z",
+        incorrectIncrementalUnits: "0",
+      },
+    ],
+  };
+  const observation = {
+    caseId: "case-1",
+    inputCommitment: manifest.cases[0].inputCommitment,
+    action: "HOLD" as const,
+    humanMinutes: 2,
+    costUnits: "0",
+    settledUnits: "0",
+    onTime: false,
+    repeatCycle: false,
+    timingEvidenceId: "synthetic-timing-fixture",
+    observedAt: "2026-09-28T00:00:00Z",
+  };
+  expect(() =>
+    evaluateExperiment({
+      manifest,
+      manifestCommitment: commitment(manifest),
+      results: [{ ...observation, arm: "rules" }],
+    }),
+  ).toThrow(/all three/);
+  const complete = {
+    manifest,
+    manifestCommitment: commitment(manifest),
+    results: ["prior-workflow", "rules", "rules-agent"].map((arm) => ({
+      ...observation,
+      arm,
+    })),
+  };
+  expect(evaluateExperiment(complete).metrics).toHaveLength(3);
+  expect(() =>
+    evaluateExperiment({
+      ...complete,
+      manifest: { ...manifest, id: "tampered" },
+    }),
+  ).toThrow(/commitment/);
+  expect(() =>
+    evaluateExperiment({
+      ...complete,
+      results: complete.results.map((r) => ({
+        ...r,
+        inputCommitment: "0x" + "22".repeat(32),
+      })),
+    }),
+  ).toThrow(/point-in-time/);
+});

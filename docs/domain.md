@@ -64,3 +64,9 @@ A receipt is **not** proof of work quality, factual truth, complete logging, or 
 `createDemoFixture()` contains synthetic dates, addresses, records, and scenarios. It is suitable for isolated explanation and adversarial verification, never evidence of customer adoption or a deployment. Fixtures require no credentials and cannot move money.
 
 Run focused tests with `npm test -- --run tests/domain`. The full project verification additionally checks persistence, contract enforcement, integrations, typechecking, and production build.
+
+### Reproducible three-arm evaluation CLI
+
+`npx tsx scripts/evaluate.ts experiment.json [report.json] [trusted-manifest-commitment]` validates an `evaluationBundleSchema` bundle, verifies its frozen manifest hash, and refuses incomplete comparisons. Every held-out case must include exactly one prior-workflow, rules, and rules-agent result against the same point-in-time input commitment. A case cannot use later evidence or silently disappear from one arm. The manifest carries adjudicator identity, cohort, as-of time, label, and the confirmed incorrect incremental amount. Each result supplies measured active human minutes and a timing evidence ID; missing measurements are not replaced with invented zeroes. Output files are created exclusively and never overwrite existing results.
+
+Externally frozen commitments can be supplied as the third argument. Otherwise the report marks `externallyAnchored: false`; local metadata alone does not establish that the dataset was frozen before development. Empty datasets produce no claimed metrics. No customer results are shipped because none have been collected through this implementation.
