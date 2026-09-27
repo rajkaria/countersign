@@ -25,3 +25,13 @@ Invoices, forwarded mail, and vendor corrections cannot overwrite the trusted re
 ## Originals and extraction
 
 PDFs, images, CSV and text originals are encrypted with AES-256-GCM and tenant-bound additional authenticated data. Uploads are capped at 4 MB and downloaded as attachments. Source text and model extraction remain untrusted suggestions. An owner must review the exact terms before activation.
+
+## Original sources and forwarded invoices
+
+Upload original files in Team & settings, then select the source when creating an agreement, invoice, or acceptance. Extraction returns suggestions with source locations and uncertainties; review the original before entering approved terms. If the model provider is unavailable, manual source-linked entry still works.
+
+The Forwarded intake view exposes messages delivered by your authenticated email forwarder. Create a scoped intake key, install it in the provider webhook, and review each message before registering its invoice. The key cannot read documents, approve agreements, or pay invoices. Countersign does not operate an inbound email mailbox by itself.
+
+## Hold a disputed invoice
+
+An owner can place a version-specific manual hold with a reason. Clearing the hold requires fresh sign-in and a new review; it never bypasses verification. Existing transmitted operations remain subject to reconciliation and independent Safe recovery. Neither action expands coverage or future policy.

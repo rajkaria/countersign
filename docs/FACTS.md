@@ -2,6 +2,10 @@
 
 Updated 28 September 2026. This page distinguishes software capability from externally verified production operation.
 
+## Current hosting
+
+The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.vercel.app). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). The production database and payment worker are not provisioned; real-workspace operations return a configuration error until dedicated persistence is connected. The demo remains available.
+
 ## Implemented software
 
 - A responsive landing page, searchable synthetic workspace, read-only onboarding UI and detailed handbook.

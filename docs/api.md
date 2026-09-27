@@ -63,3 +63,11 @@ POST /api/organizations/{org}/destination-changes creates an immutable destinati
 POST /api/organizations/{org}/history-reconciliation binds safeId, observationId, sourceDocumentIds and a statement to classifications for every observed outgoing transfer. Transfer classifications are countersign, external_invoice, or non_payable, with concrete matching references and reasons. It requires fresh owner authentication and rejects omitted/duplicate or inconsistent matches. An attestation is a human statement about the documented history scope, not proof of universal completeness.
 
 POST /api/organizations/{org}/plan accepts policyId and persists a commitment plan from a recent confirmed balance. No forecast balance is accepted. POST /api/organizations/{org}/authorize accepts only an existing paymentId, derives all payment fields server-side, and requires the verified manifest, exact on-chain configuration, independent verifier and Circle path. It cannot be used to bypass a hold. Covered authorization first returns the exact unsigned allocation requirements; signing waits for verified collateral.
+
+## Scoped owner overrides
+
+POST /api/organizations/{org}/override accepts invoiceId, expectedVersion, action (hold or clear_hold), and a reason of at least ten characters. Only owners can apply an override. Hold narrows authority and invalidates unsubmitted permits. Clear_hold requires a sign-in within five minutes and returns the invoice to review; it cannot force payment, change destinations, widen policy, or clear an unresolved submitted operation. The immutable event reports the coverage consequence. An application hold is not an on-chain revocation of an already broadcast transaction.
+
+GET /api/organizations/{org}/documents lists attachment metadata in the current tenant. GET /api/organizations/{org}/intake-events returns the latest 200 untrusted forwarded messages for review. Source content never activates agreements or authorizes payment.
+
+GET /api/organizations/{org}/payments/{paymentId}/receipt downloads the immutable bound decision receipt. Incomplete or inconsistent evidence is rejected rather than inventing proof. POST /api/organizations/{org}/payments/{paymentId}/relay-transaction accepts transactionHash and note to attach a destination candidate for worker verification. Attaching a candidate never marks a payment settled.

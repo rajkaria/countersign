@@ -127,7 +127,13 @@ export async function readSafe(input: {
     finalizedBlockHash: block.hash,
     historyFrom: start.toString(),
     historyComplete: false,
-    transfers: [...outgoing, ...incoming].map((log) => ({
+    transfers: [
+      ...new Map(
+        [...outgoing, ...incoming].map(
+          (log) => [`${log.transactionHash}:${log.logIndex}`, log] as const,
+        ),
+      ).values(),
+    ].map((log) => ({
       transactionHash: log.transactionHash,
       logIndex: log.logIndex,
       from: log.args.from,

@@ -21,6 +21,7 @@ describe('authenticated tenant boundary and controlled changes',()=>{
   await pg.query('DELETE FROM sessions WHERE token_hash=$1',[digest(token)]);
   await expect(authorize(db,request,orgA)).rejects.toThrow(/expired/);
  });
+ it('bounds challenge issuance across attacker-controlled wallet identities',async()=>{await pg.query("INSERT INTO rate_limits(key,count,resets_at) VALUES('challenge:global',120,now()+interval '1 minute') ON CONFLICT(key) DO UPDATE SET count=120,resets_at=EXCLUDED.resets_at");await expect(issueChallenge(db,'0x3333333333333333333333333333333333333333')).rejects.toThrow(/Too many requests/);await pg.query("DELETE FROM rate_limits WHERE key='challenge:global'");});
  it('rejects unauthorized vendor writes and prevents cross-tenant object reads',async()=>{
   const body={name:'Studio',destination:'0x1111111111111111111111111111111111111111',chainId:5042002,verified:true,verificationNote:'Confirmed via existing business contact'};
   await expect(saveRecord(db,{...owner,role:'operator'},'vendor',body)).rejects.toThrow(/role/);

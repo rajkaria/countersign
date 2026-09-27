@@ -6,6 +6,8 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
+[Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
+
 ## Product preview
 
 ![Countersign landing page](docs/assets/landing.png)
@@ -22,7 +24,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Node 22+ and Foundry are required for the full verification suite. The landing, documentation and synthetic demo run without credentials. A real workspace requires a dedicated PostgreSQL database and secure environment configuration. Read [deployment guide](docs/deployment.md).
+Node 22 and Foundry are required for the full verification suite. The landing, documentation and synthetic demo run without credentials. A real workspace requires a dedicated PostgreSQL database and secure environment configuration. Read [deployment guide](docs/deployment.md).
 
 ```sh
 node --env-file=.env.local --import tsx scripts/migrate.ts

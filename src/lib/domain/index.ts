@@ -10,3 +10,5 @@ export * from "./receipt";
 export * from "./evaluation";
 
 export * from "./permit";
+
+export * from "./evidence";

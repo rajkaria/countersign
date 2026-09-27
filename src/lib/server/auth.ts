@@ -12,6 +12,7 @@ export function origin():string{return new URL(process.env.APP_ORIGIN || 'http:/
 export function checkOrigin(request:Request){if(request.headers.get('origin')!==origin())throw new ServiceError(403,'ORIGIN','Request origin is not permitted.');}
 export async function issueChallenge(db:Database,wallet:string){
  let address:Address;try{address=getAddress(wallet);}catch{throw new ServiceError(400,'WALLET','Enter a valid Ethereum address.');}
+ await limit(db,'challenge:global',120,60);
  await limit(db,`challenge:${address.toLowerCase()}`,5,300);
  const challengeId=id(), nonce=randomBytes(24).toString('hex'),expiresAt=new Date(Date.now()+300000).toISOString();
  const message=`${new URL(origin()).host} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to Countersign. This grants no spending permission.\n\nURI: ${origin()}\nVersion: 1\nChain ID: 1\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}\nExpiration Time: ${expiresAt}`;

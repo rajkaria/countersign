@@ -12,10 +12,13 @@ export type OutboxJob = {
   lease_token: string;
   attempts: number;
 };
-export async function claimJob(db: Database): Promise<OutboxJob | null> {
+export async function claimJob(
+  db: Database,
+  organizationId?: string,
+): Promise<OutboxJob | null> {
   const result = await db.query<OutboxJob>(
-    `WITH candidate AS (SELECT id FROM outbox WHERE completed_at IS NULL AND attempts<8 AND available_at<=now() AND (leased_until IS NULL OR leased_until<now()) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE outbox o SET leased_until=now()+interval '90 seconds',lease_token=$1,attempts=o.attempts+1 FROM candidate c WHERE o.id=c.id RETURNING o.id,o.organization_id,o.kind,o.payload,o.lease_token,o.attempts`,
-    [randomUUID()],
+    `WITH candidate AS (SELECT id FROM outbox WHERE completed_at IS NULL AND ($2::uuid IS NULL OR organization_id=$2) AND attempts<8 AND available_at<=now() AND (leased_until IS NULL OR leased_until<now()) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE outbox o SET leased_until=now()+interval '90 seconds',lease_token=$1,attempts=o.attempts+1 FROM candidate c WHERE o.id=c.id RETURNING o.id,o.organization_id,o.kind,o.payload,o.lease_token,o.attempts`,
+    [randomUUID(), organizationId ?? null],
   );
   return result.rows[0] ?? null;
 }
@@ -36,8 +39,9 @@ export async function failJob(db: Database, job: OutboxJob, reason: string) {
 export async function runWorkerOnce(
   db: Database,
   handler: (job: OutboxJob) => Promise<void>,
+  organizationId?: string,
 ) {
-  const job = await claimJob(db);
+  const job = await claimJob(db, organizationId);
   if (!job) return { status: "idle" as const };
   try {
     await handler(job);

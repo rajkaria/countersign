@@ -94,3 +94,15 @@ Sources: [Circle MessageV2 format](https://github.com/circlefin/evm-cctp-contrac
 | `CCTP_DESTINATION_TRANSMITTER`, `CCTP_DESTINATION_TOKEN` | Destination event/native-USDC contracts             |
 
 Never commit the manifest's private operational artifacts, credentials, wallet profile, or tenant evidence. Run `npm test -- --run tests/integrations` for deterministic adapter and durable-lease tests; live compatibility/real settlement still require explicit credentials, deployment, allocated funds, and recorded proof.
+
+## Standing operations and periodic reassessment
+
+The persistent worker refreshes the configured Safe read-only and scans obligations once per minute, including before the first `--once` job. Evidence-triggered `reassess` jobs use the same orchestration. Outbox leases are restricted to the configured organization. Notification jobs are dispatched separately and remain disabled unless `NOTIFICATIONS_ENABLED=true` and that organization's Telegram destination is explicitly configured.
+
+Background authority comes from the immutable engagement's recorded approving wallet and its **current owner membership**. No invented owner identity grants authority. The orchestrator locks the organization, evaluates current invoices, saves decisions/outcomes, and computes a joint cash plan for each Safe before preparing or authorizing any due Delegate payment. Existing unresolved or invalidated operations keep their identities and reservations. Observe/Prepare engagements remain human-controlled; future due dates and shortfalls schedule rather than execute. Multiple policies sharing a Safe use one confirmed balance, aggregated protected commitments, and the largest configured operating/fee floor. Scans fail closed above 500 open invoices rather than silently omitting obligations from cash planning.
+
+An existing prepared intent is reused. Covered-only execution waits for its exact funded on-chain allocation. Authorization failures use savepoints so the failure and other invoice assessments remain recorded. Material outcome changes can create deduplicated notification jobs, never signing shortcuts.
+
+Periodic chain observations do not fabricate fresh human attestations. The worker can extend an existing owner-supported historical baseline only when block coverage is continuous, the prior finalized block remains canonical, the original attestor is still an owner, and every new outgoing transfer uniquely matches a source-confirmed Countersign operation. Unknown external transfers, history gaps, or missing baseline evidence block automation pending human reconciliation. This preserves historical statement responsibility while allowing ordinary continuous payments and confirmed incoming funds to update the plan.
+
+The final coverage-validated decision is a new immutable `PAY` record; the earlier conditional coverage hold stays intact. Its permit evidence commitment binds approved business input versions and source hashes rather than a provisional decision ID. This lets the exact unsigned permit be reserved first and prevents a final receipt from incorrectly presenting the earlier hold as an executable decision.

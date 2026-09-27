@@ -44,3 +44,16 @@ Read /api/health for application availability and /api/ready for database readin
 Run the worker on a durable host with database access and separately protected Circle credentials. Keep the executor and verifier identities distinct. Alert on expired leases, stuck payment intents, stale history, due obligations, provider failure, insufficient gas and insufficient coverage. Review operational alerts without converting expected configuration gates into claimed successful executions.
 
 Back up PostgreSQL and the document key separately. Test restore before accepting real customer records. Preserve pending payment identities across restore. Establish a retention policy with customers and revoke vendor links and intake keys when they are no longer needed.
+
+## Persistent worker container
+
+Dockerfile.worker provides a Node 22 worker with the inspected Circle CLI version pinned. It intentionally does not provision a wallet, accept provider terms, copy profiles, or embed environment files. Build the container separately from Vercel, provision secrets on the worker host, and mount its Circle profile under the non-root user's home. Mount a reviewed deployment manifest read-only or supply the JSON secret. Start with execution disabled and verify the exact deployment before enabling it.
+
+```sh
+docker build -f Dockerfile.worker -t countersign-worker .
+# Supply a private environment file and a protected Circle profile/manifest mount.
+# Run only after the documented compatibility and recovery checks are complete.
+docker run --init --restart unless-stopped --env-file /secure/countersign-worker.env countersign-worker
+```
+
+The container definition is supplied for deployment; it has not been built or hosted as part of the static Vercel release. The worker performs a periodic read-only Safe refresh, standing obligation reassessment and leased job dispatch. A missing manifest or database is a startup gate. Do not put Circle credentials or the verifier key in the web deployment unless a documented web authorization operation requires the isolated verifier; prefer separate verifier custody for production.

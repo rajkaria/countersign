@@ -1,0 +1,13 @@
+contracts/lib
+contracts/out
+contracts/cache
+contracts/test
+node_modules
+.ocean
+internal
+test-results
+playwright-report
+.git
+.env*
+!.env.example
+*.tsbuildinfo

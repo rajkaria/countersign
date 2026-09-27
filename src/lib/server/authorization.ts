@@ -1,3 +1,4 @@
+import { businessEvidenceCommitment } from "../domain/evidence";
 import { randomBytes, randomUUID } from "node:crypto";
 import { privateKeyToAccount } from "viem/accounts";
 import { keccak256, stringToHex, parseAbi, type Hex, type Address } from "viem";
@@ -99,18 +100,18 @@ export async function authorizePreparedPayment(
       "Only a current prepared payment can be authorized.",
     );
   const result = await evaluateInvoice(db, actor, row.invoice_id, row.id);
-  if (
+  const blocking = result.decision.findings.filter(
+    (f) => f.severity !== "info",
+  );
+  const coverageConditional =
     result.input.policy.coverageRequired &&
-    result.decision.findings
-      .filter((f) => f.severity !== "info")
-      .every((f) => f.code === "COVERAGE_REQUIRED")
-  )
-    result.decision = verifyObligation({
-      ...result.input,
-      coverageReserved: true,
-    });
-  if (!result.decision.executable || result.decision.action !== "PAY")
-    throw new ServiceError(409, "PAYMENT_HELD", result.decision.reason);
+    blocking.length === 1 &&
+    blocking[0].code === "COVERAGE_REQUIRED";
+  const eligibilityDecision = coverageConditional
+    ? verifyObligation({ ...result.input, coverageReserved: true })
+    : result.decision;
+  if (!eligibilityDecision.executable || eligibilityDecision.action !== "PAY")
+    throw new ServiceError(409, "PAYMENT_HELD", eligibilityDecision.reason);
   const { input } = result;
   await verifyDeploymentManifest(manifest, rpc);
   const client = chainClient(rpc),
@@ -149,7 +150,7 @@ export async function authorizePreparedPayment(
   ]);
   if (
     binding !== engagementId ||
-    limit < paid + BigInt(result.decision.amount) ||
+    limit < paid + BigInt(eligibilityDecision.amount) ||
     engagement[0] !== BigInt(input.engagement.version) ||
     engagement[1].toLowerCase() !==
       input.invoice.destination.address.toLowerCase() ||
@@ -185,19 +186,12 @@ export async function authorizePreparedPayment(
         destinationChainId: String(input.invoice.destination.chainId),
         recipient: input.invoice.destination.address,
         token: manifest.token,
-        amount: result.decision.amount,
+        amount: eligibilityDecision.amount,
         maxFee: "0",
         route: cross ? CCTP_ROUTE : DIRECT_ROUTE,
-        evidenceCommitment: keccak256(
-          stringToHex(
-            JSON.stringify({
-              decision: result.id,
-              sources: result.decision.sourceIds,
-            }),
-          ),
-        ),
+        evidenceCommitment: businessEvidenceCommitment(input),
         expiresAt: String(
-          Math.floor(Date.parse(result.decision.validUntil) / 1000),
+          Math.floor(Date.parse(eligibilityDecision.validUntil) / 1000),
         ),
         nonce: BigInt("0x" + randomBytes(32).toString("hex")).toString(),
         coverageId: input.policy.coverageRequired
@@ -207,13 +201,14 @@ export async function authorizePreparedPayment(
         minFinalityThreshold: cross ? "2000" : "0",
       });
   if (
-    p.amount !== result.decision.amount ||
+    p.amount !== eligibilityDecision.amount ||
     p.engagementVersion !== String(input.engagement.version) ||
     p.policyEpoch !== epoch.toString() ||
+    p.evidenceCommitment !== businessEvidenceCommitment(input) ||
     p.recipient.toLowerCase() !==
       input.invoice.destination.address.toLowerCase() ||
     BigInt(p.expiresAt) <= BigInt(Math.floor(Date.now() / 1000)) ||
-    Number(p.expiresAt) * 1000 > Date.parse(result.decision.validUntil)
+    Number(p.expiresAt) * 1000 > Date.parse(eligibilityDecision.validUntil)
   )
     throw new ServiceError(
       409,
@@ -282,6 +277,14 @@ export async function authorizePreparedPayment(
         "COVERAGE_BINDING",
         "Funded reserved allocation does not match this exact permit and full liability.",
       );
+    const funded = await persistCoveredDecision(db, actor, result, {
+      reserve,
+      coverageId: p.coverageId,
+      permitDigest: permitDigest(p),
+    });
+    result.id = funded.id;
+    result.decision = funded.decision;
+    result.input = funded.input;
   }
   await checkModuleDeployment({
     rpcUrl: rpc,
@@ -347,4 +350,56 @@ export async function authorizePreparedPayment(
     permitDigest: permitDigest(p),
   });
   return { id: row.id, state: "authorized", permitDigest: permitDigest(p) };
+}
+
+export { businessEvidenceCommitment } from "../domain/evidence";
+/** Invoke only after independently checking the exact active funded on-chain allocation. Retains the earlier conditional decision unchanged. */
+export async function persistCoveredDecision(
+  db: Database,
+  actor: Actor,
+  prior: Awaited<ReturnType<typeof evaluateInvoice>>,
+  proof: { reserve: string; coverageId: string; permitDigest: string },
+) {
+  if (
+    actor.role !== "owner" ||
+    prior.input.tenantId !== actor.organizationId ||
+    prior.decision.tenantId !== actor.organizationId
+  )
+    throw new ServiceError(
+      403,
+      "COVERAGE_DECISION_AUTHORITY",
+      "Coverage decision must remain in the authenticated owner's organization.",
+    );
+  const blocking = prior.decision.findings.filter((f) => f.severity !== "info");
+  if (
+    !prior.input.policy.coverageRequired ||
+    blocking.length !== 1 ||
+    blocking[0].code !== "COVERAGE_REQUIRED"
+  )
+    throw new ServiceError(
+      409,
+      "COVERAGE_DECISION",
+      "Only the independently resolved coverage condition can advance this decision.",
+    );
+  const input = { ...prior.input, coverageReserved: true };
+  const decision = verifyObligation(input);
+  if (!decision.executable || decision.action !== "PAY")
+    throw new ServiceError(409, "PAYMENT_HELD", decision.reason);
+  const id = randomUUID();
+  await db.query(
+    "INSERT INTO records(organization_id,kind,id,body,created_by) VALUES($1,'decision',$2,$3,$4)",
+    [
+      actor.organizationId,
+      id,
+      JSON.stringify({
+        decision,
+        input,
+        obligationId: input.invoice.obligationId,
+        priorDecisionId: prior.id,
+        coverageProof: proof,
+      }),
+      actor.wallet,
+    ],
+  );
+  return { id, decision, input };
 }

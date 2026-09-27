@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci --ignore-scripts",
+  "regions": ["bom1"],
+  "functions": { "src/app/api/[...path]/route.ts": { "maxDuration": 60 } }
+}

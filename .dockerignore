@@ -1,0 +1,10 @@
+**/.git
+**/.env*
+node_modules
+.next
+contracts
+internal
+.ocean
+.vercel
+test-results
+playwright-report
