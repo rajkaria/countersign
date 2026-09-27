@@ -1,0 +1,1 @@
+export default function Loading(){return <main id="main" className="account-page" aria-busy="true" aria-label="Loading Countersign"><p className="wordmark">Countersign ↗</p><section className="account-card"><p role="status">Loading your next view…</p></section></main>}

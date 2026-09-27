@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function NotFound(){return <main id="main" className="account-page"><Link className="wordmark" href="/">Countersign ↗</Link><section className="account-card"><p className="eyebrow">404 / PAGE NOT FOUND</p><h1>One thing we<br/>couldn’t match.</h1><p>This page has moved or doesn’t exist. Your payment records are available in your private workspace.</p><Link className="button primary" href="/">Back to Countersign →</Link><Link className="text-link" href="/docs">Browse the handbook</Link></section></main>}

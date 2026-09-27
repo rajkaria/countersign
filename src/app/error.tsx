@@ -1,0 +1,3 @@
+'use client';
+import Link from 'next/link';
+export default function ErrorPage({reset}:{error:Error & {digest?:string};reset:()=>void}){return <main id="main" className="account-page"><Link className="wordmark" href="/">Countersign ↗</Link><section className="account-card"><p className="eyebrow">LET’S TRY THAT AGAIN</p><h1>This view couldn’t load.</h1><p>Your saved records remain in your workspace. Refreshing this page does not submit or retry a payment.</p><button className="button primary" onClick={reset}>Reload this view</button><Link className="text-link" href="/docs/recovery">Read the recovery guide →</Link></section></main>}
