@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
-  title: "Countersign — Before money moves. Make it add up.",
+  title: { absolute: "Countersign — Before money moves. Make it add up." },
   alternates: { canonical: "/" },
   description:
     "Bring agreements, invoices, acceptance, and payment history into one review. Explore agreement-aware payments with bounded Safe authority.",

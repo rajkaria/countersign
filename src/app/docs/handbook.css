@@ -464,7 +464,7 @@
 .handbook-search-results > p {
   font-size: 10px;
   margin: 3px 7px 7px;
-  color: #6b7e57;
+  color: #576e42;
 }
 .handbook-search-results > a {
   display: flex;
@@ -484,7 +484,7 @@
 .handbook-search-results span {
   font-size: 10px;
   line-height: 1.7;
-  color: #6c7e58;
+  color: #576e42;
   margin-top: 3px;
 }
 @media (min-width: 1500px) {
