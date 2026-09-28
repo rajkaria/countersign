@@ -1,6 +1,6 @@
 # HTTP API
 
-The application API uses JSON, cookie sessions for customer workflows, explicit tenant authorization, and integer atomic-unit monetary strings. Every live endpoint requires a configured durable database. Unconfigured dependencies return 503; they never fall back to demo state.
+The application API uses JSON, cookie sessions for customer workflows, explicit tenant authorization, and integer atomic-unit monetary strings. Customer workflows require a configured durable database. The public `GET /api/health` endpoint reports configuration status without requiring database access. Unconfigured dependencies return 503; they never fall back to demo state.
 
 ## Authentication
 
@@ -66,8 +66,70 @@ POST /api/organizations/{org}/plan accepts policyId and persists a commitment pl
 
 ## Scoped owner overrides
 
-POST /api/organizations/{org}/override accepts invoiceId, expectedVersion, action (hold or clear_hold), and a reason of at least ten characters. Only owners can apply an override. Hold narrows authority and invalidates unsubmitted permits. Clear_hold requires a sign-in within five minutes and returns the invoice to review; it cannot force payment, change destinations, widen policy, or clear an unresolved submitted operation. The immutable event reports the coverage consequence. An application hold is not an on-chain revocation of an already broadcast transaction.
+POST /api/organizations/{org}/override accepts invoiceId, expectedVersion, action (hold or clear_hold), and a reason of at least ten characters. Only owners can apply an override. Hold narrows application authority and invalidates eligible unsubmitted intents. Clear_hold requires a sign-in within five minutes and returns the invoice to review; it cannot force payment, change destinations, widen policy, or clear an unresolved submitted operation. The immutable event reports the coverage consequence. An application hold does not revoke an already signed on-chain permit, even before broadcast. Owners must use independent on-chain pause or revocation controls when required; already submitted or uncertain operations retain their identity and require reconciliation.
 
 GET /api/organizations/{org}/documents lists attachment metadata in the current tenant. GET /api/organizations/{org}/intake-events returns the latest 200 untrusted forwarded messages for review. Source content never activates agreements or authorizes payment.
 
 GET /api/organizations/{org}/payments/{paymentId}/receipt downloads the immutable bound decision receipt. Incomplete or inconsistent evidence is rejected rather than inventing proof. POST /api/organizations/{org}/payments/{paymentId}/relay-transaction accepts transactionHash and note to attach a destination candidate for worker verification. Attaching a candidate never marks a payment settled.
+
+## Request and response conventions
+
+Use the deployment origin that issued the session. Browser mutations send the matching `Origin`, `Content-Type: application/json` for JSON, and the session cookie. Document uploads use multipart form data with a `file` field. Intake and vendor bearer credentials are deliberately separate from customer sessions.
+
+Successful resource responses return the documented object or array. Service errors have a structured `error` object with `code` and `message`; inspect both the HTTP status and the code. Never log session cookies, intake tokens or complete vendor links.
+
+The workspace snapshot returns up to 2,000 records, 200 payments and 100 recent audit events. Document and forwarded-intake lists return up to 200 recent entries. These bounded views are not a guarantee of complete historical export. The current snapshot's `executionEnabled` field is conservatively false; do not infer route readiness from a snapshot alone.
+
+## Example: review an existing invoice
+
+This example runs in an authenticated browser on the configured deployment. `organizationId` and `invoiceId` must come from records the signed-in user is authorized to access. It creates a review record but does not prepare or submit a payment.
+
+```javascript
+const response = await fetch(`/api/organizations/${organizationId}/review`, {
+  method: "POST",
+  credentials: "same-origin",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ invoiceId }),
+});
+const result = await response.json();
+if (!response.ok) throw new Error(result.error?.message ?? "Review failed");
+const { action, executable, findings, validUntil } = result.decision;
+```
+
+Read the findings and validity along with the action. A PAY result does not grant authority beyond the engagement mode. The request requires owner, approver or operator membership.
+
+## Example: versioned record update
+
+Record creation accepts the record fields directly or wrapped in `body`. Updates should use a wrapper containing the complete schema body and current `expectedVersion`; do not submit only a partial patch and assume unspecified fields are retained.
+
+```json
+{
+  "expectedVersion": 2,
+  "body": {
+    "name": "Example vendor",
+    "reference": "VENDOR-001",
+    "destination": "0x1111111111111111111111111111111111111111",
+    "chainId": 1,
+    "verified": false,
+    "verificationNote": ""
+  }
+}
+```
+
+This is illustrative vendor data, not a verified settlement destination. Send it only to the intended existing vendor record in a test workspace; a production address change must use the separate controlled workflow. A stale version returns 409, and an ordinary update cannot change the trusted destination or chain.
+
+## Preparation and idempotency
+
+Preparation accepts `{ invoiceId, key }`, where the stable key is 8–160 characters. Authorization accepts `{ paymentId }` for the already stored payment. Amount, destination, versions and permit fields are derived by the server; neither endpoint accepts a model-generated arbitrary transaction.
+
+Keep the same key for a retry of the same preparation. A key used for a different invoice returns a conflict. If an operation is invalidated or submission becomes uncertain, reconcile it instead of choosing another key. See [payments](/docs/payments) and [recovery](/docs/recovery).
+
+## Additional read and export surfaces
+
+`GET /api/organizations/{org}/records/{kind}/{id}` returns one authorized record. `GET /api/organizations/{org}/destination-changes` lists proposals for owners and approvers. `GET /api/organizations/{org}/export` returns a versioned JSON payment export; add `?format=csv` for the escaped CSV attachment. These exports contain financial metadata and remain private workspace data.
+
+`GET /api/health` is public liveness/configuration information; `GET /api/ready` checks database readiness. A successful health response is not proof of Circle configuration, Safe authority or funded protection. A 503 after a financial submission must not be interpreted as evidence of nonexecution.
+
+## Schema scope and implemented limits
+
+The source of truth for record validation is `src/lib/server/records.ts`. Domain capabilities can be broader than the current HTTP record schema: for example, hourly quantities and explicitly requested partial amounts exist in the verifier model but are not fully exposed through the current invoice preparation path. Consult [agreements](/docs/agreements), [verification](/docs/verification) and [agents](/docs/agents) before building an assistant around those fields.

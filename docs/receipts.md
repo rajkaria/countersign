@@ -46,3 +46,21 @@ The download includes opaque organization, invoice, engagement and payment ident
 Free-form decision narratives, raw verification inputs, source documents, source URLs, customer names and verifier signatures are omitted. Narratives are explicitly replaced with redaction notices before computing the portable receipt hash. Consequently the portable receipt hash commits to the exported, redacted record; it is not a claim that the original internal JSON was published unchanged. Exported evidence commitments come from the stored execution permit. The exporter does not publish a new collection of unsalted document hashes.
 
 Even a redacted receipt exposes financial metadata including amounts, wallet destinations and activity times. Downloading it is not consent to publish it. Review and obtain the business's permission before sharing it outside the organization.
+
+## Use an independently known commitment
+
+When you have a digest recorded through an independent trusted channel, pass it as the optional second CLI argument:
+
+```sh
+npm run receipt:verify -- path/to/receipt.json <trusted-0x-sha256>
+```
+
+Replace the placeholder with the actual trusted commitment. Without an independent checkpoint, matching the file's self-contained hash detects accidental changes relative to that hash, but an attacker able to replace both can manufacture another internally consistent record.
+
+The CLI limits input to 2 MB, prints a structured verification result and exits unsuccessfully for invalid integrity or malformed input. An integrity-valid result is not an instruction to pay or a statement that chain evidence was fetched live.
+
+## Reading a receipt in context
+
+Check the organization and invoice identity, the historical versions and decision time, the exact amount and recipient, and whether an execution permit or settlement exists. Compare transaction references with the intended chain through an independently trusted provider when settlement matters. If the file is unsigned, do not describe it as signed. If no external commitment was supplied, do not describe it as externally anchored.
+
+A bookkeeper can use the receipt alongside the [accounting export](/docs/accounting). An incident reviewer can compare it with the [recovery record](/docs/recovery). A model should follow the authority and privacy boundaries in [agents](/docs/agents).

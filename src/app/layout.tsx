@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { siteOrigin } from "@/lib/content/guides";
 import localFont from "next/font/local";
 const dmSans = localFont({
   src: "../components/fonts/dm-sans.ttf",
@@ -12,12 +13,7 @@ const manrope = localFont({
   display: "swap",
 });
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.APP_ORIGIN ||
-      (process.env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-        : "http://localhost:3000"),
-  ),
+  metadataBase: new URL(siteOrigin),
   title: {
     default: "Countersign — Every payment, accounted for.",
     template: "%s · Countersign",
@@ -25,6 +21,7 @@ export const metadata: Metadata = {
   description:
     "Check payments against agreements, delivery, and what you already paid. Review exceptions with evidence and keep control of your Safe.",
   applicationName: "Countersign",
+  alternates: { types: { "text/plain": "/llms.txt" } },
   robots: { index: true, follow: true },
 };
 export const viewport: Viewport = {

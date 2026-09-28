@@ -1,6 +1,6 @@
 # Countersign
 
-**Pay what you agreed. Know why.**
+**Before money moves. Make it add up.**
 
 Countersign checks invoices against approved agreements, customer acceptance and prior payments. It brings exceptions into a source-linked review and keeps delegated execution inside explicit Safe limits.
 
@@ -65,6 +65,17 @@ The implementation uses Next.js, TypeScript, PostgreSQL, viem, Circle CLI integr
 - [Reserved protection](docs/protection.md)
 - [Evidence and evaluation](docs/evaluation.md)
 - [Verified facts and external gates](docs/FACTS.md)
+
+## Public handbook and machine-readable documentation
+
+The handbook at `/docs` contains 29 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
+
+- `/llms.txt` is the discovery index, with descriptions and absolute Markdown links.
+- `/llms-full.txt` contains the complete public handbook, with source URLs and availability boundaries.
+- `/docs/raw/{slug}` serves an individual guide as `text/markdown`.
+- `/sitemap.xml` lists the public pages; private application routes are excluded from crawler discovery.
+
+Add public guides in `src/lib/content/guides.ts` and their Markdown in `docs/`. Keep internal strategy, credentials, and private customer information outside this registry. The content check verifies allowlisted file names, internal guide links, headings, and fenced examples. Never infer production readiness from documentation availability.
 
 ## Verification boundaries
 

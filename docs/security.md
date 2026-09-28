@@ -31,3 +31,34 @@ The recovery procedure works through the Safe owners and does not rely on the mo
 ## Release discipline
 
 Automated tests and this project's internal review are not an independent audit. Broad mainnet delegation requires independent security review, verified deployment bytecode, documented operator ownership, small explicit initial allocations and exercised recovery. No real funds were moved to manufacture a demonstration.
+
+## Permission and data boundaries
+
+| Boundary | What it controls |
+|---|---|
+| Wallet session | Application identity for one authenticated wallet |
+| Organization membership | Which tenant records the wallet can access |
+| Application role | Which record/review operations are allowed |
+| Agreement acceptor list | Who can provide contractual customer acceptance |
+| Verified deployment | Which reviewed contracts and provider path may be used |
+| Safe policy and exact permit | The independently enforced on-chain spending authority |
+
+Passing one boundary does not satisfy the others. A business's application owner is not automatically a Safe owner. A Safe owner connecting to the app is not automatically a member of every workspace. An approver must still be named in the agreement to attest.
+
+## Sensitive changes
+
+Destination changes require a proposal and a separately authenticated confirmation, normally by another eligible reviewer. Clearing a manual hold and confirming history reconciliation require recent owner authentication. These checks protect changes in application authority; Safe owners still need independent on-chain revocation when a signed or broadcast operation is at risk.
+
+The application records decisions, changes, approvals and controlled overrides with actor and version references. Audit history supports investigation; it does not prove that an authorized human's factual statement was true.
+
+## Data minimization in practice
+
+Use only documents the business has authorized for processing. Restrict intake keys to the configured forwarder, keep vendor links private, and agree retention before uploading customer evidence. The optional model provider receives selected evidence for configured tasks; review its applicable data handling before use. Model calls request no response storage, which is not a blanket promise about every provider retention behavior.
+
+A redacted receipt can still reveal amounts, destinations and timing. Download permission is not permission to publish. Never include private keys, seed phrases, access tokens or private operational manifests in documents, prompts or public evidence.
+
+## Trust that remains
+
+Countersign depends on the authenticated business's records, the independent verifier, canonical token behavior, configured providers, chain finality and human Safe recovery. A verifier compromise can authorize false off-chain facts within installed limits. Contract constraints reduce available authority; they cannot establish the truth of delivery or remove every operational risk.
+
+For the precise implemented controls and test limitations, read [contracts](/docs/contracts), [internal security review](/docs/security-review), [operations](/docs/operations) and [recovery](/docs/recovery).

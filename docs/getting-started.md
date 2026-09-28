@@ -34,3 +34,51 @@ Owners manage vendors, terms, policy previews and memberships. Approvers can rec
 ## When a payment needs attention
 
 Open a case from the invoice. Give it a clear discrepancy and next action. A private vendor correction link exposes only that case, expires after seven days, and does not let a vendor approve a payment or change the trusted destination. See [agreements and acceptance](/docs/agreements).
+
+## Check deployment readiness first
+
+The public site and demo do not require payment credentials. A real workspace requires a configured durable database and private document encryption. At the documented release, those production services and financial execution were not activated. If sign-in or workspace creation reports a configuration error, use the demo while an operator completes [deployment](/docs/deployment); real records are never stored in a temporary memory fallback.
+
+`GET /api/health` reports application availability. `GET /api/ready` checks database readiness. Neither proves a Safe module is installed or a payment route is ready. Consult [release status](/docs/release-status) for the verified boundary.
+
+## A complete first workflow
+
+1. Sign in with an externally owned Ethereum wallet and create the workspace when persistence is configured.
+2. Add team members under their appropriate application roles. Record who is authorized to accept delivery for each engagement.
+3. Register the [vendor](/docs/vendors), independently verify its destination and upload the original agreement.
+4. Approve versioned [terms](/docs/agreements) in Observe mode with the amount, period, ceiling and acceptance requirement.
+5. Register the Safe read-only and a policy, then refresh and reconcile the observed history. An observation is not spending authority.
+6. Import or enter the [invoice](/docs/invoices), link its original and run [verification](/docs/verification).
+7. Resolve findings through the responsible person. Rerun review whenever terms, evidence or history change.
+8. Inspect [cash planning](/docs/planning), retain an explainable decision and review [accounting](/docs/accounting) outputs. Advance mode only through the explicit authority process.
+
+## Feature directory
+
+| What you want to do | Guide |
+|---|---|
+| Understand the use case | [Why Countersign](/docs/why-countersign) |
+| Register a vendor or change a destination | [Vendors](/docs/vendors) |
+| Define terms and customer acceptance | [Agreements](/docs/agreements) |
+| Upload, forward or bulk import invoices | [Invoice intake](/docs/invoices) |
+| Explain an approval, hold or evidence request | [Verification](/docs/verification) |
+| Reserve cash for competing obligations | [Planning](/docs/planning) |
+| Reassess standing obligations and operate a worker | [Automation](/docs/automation) |
+| Understand execution and cross-chain delivery | [Payments](/docs/payments) and [relay](/docs/relay) |
+| Reconcile manual payments and export records | [Accounting](/docs/accounting) |
+| Download and independently inspect a decision record | [Receipts](/docs/receipts) |
+| Limit access and recover from failures | [Security](/docs/security) and [recovery](/docs/recovery) |
+| Understand reserved liability and claims | [Protection](/docs/protection) |
+| Integrate an application or assistant | [API](/docs/api) and [agents](/docs/agents) |
+| Deploy and maintain the service | [Deployment](/docs/deployment) and [operations](/docs/operations) |
+| Evaluate whether it helps | [Evidence and evaluation](/docs/evaluation) |
+
+## Application role reference
+
+| Role | Typical capabilities |
+|---|---|
+| Owner | Manage vendors, agreements, policies and membership; perform controlled owner actions |
+| Approver | Review/import records, prepare eligible payments and attest when named in the engagement |
+| Operator | Intake, evidence collection, cases, reviews and payment preparation; no agreement activation |
+| Viewer | Inspect authorized records and export accessible payment information |
+
+Creating vendor correction links requires an owner or approver. Intake-key creation requires an owner. Acceptance requires both an owner/approver role and inclusion in the agreement's acceptor list. Membership administration currently adds or updates approver, operator and viewer roles; it is not a Safe-owner management interface.
