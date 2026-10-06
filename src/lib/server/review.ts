@@ -31,6 +31,7 @@ type PaymentRow = {
   amount: string;
   permit: Record<string, unknown>;
   source_tx: string | null;
+  destination_tx: string | null;
   provider_id: string | null;
   source_confirmed_at: string | null;
   settled_at: string | null;
@@ -47,7 +48,8 @@ const remaining = (cap: unknown, used: bigint) => {
 const released = (p: PaymentRow) =>
   p.state === "failed" &&
   Boolean(p.terminal_failure_proof?.trim()) &&
-  !p.source_tx;
+  !p.source_tx &&
+  !p.destination_tx;
 function addHold(
   decision: Decision,
   code: string,
@@ -72,6 +74,7 @@ export async function evaluateInvoice(
   actor: Actor,
   invoiceId: string,
   excludePaymentId?: string,
+  requestedAmount?: string,
 ) {
   requireRole(actor, ["owner", "approver", "operator"]);
   await lockOrganization(db, actor);
@@ -129,7 +132,8 @@ export async function evaluateInvoice(
     if (
       !current ||
       current.invoice_id !== invoiceId ||
-      current.engagement_id !== engagement.id
+      current.engagement_id !== engagement.id ||
+      (requestedAmount !== undefined && requestedAmount !== current.amount)
     )
       throw new ServiceError(
         409,
@@ -137,6 +141,33 @@ export async function evaluateInvoice(
         "Only the current invoice payment intent can be excluded during revalidation.",
       );
   }
+  const currentPayment = excludePaymentId
+    ? allPayments.find((p) => p.id === excludePaymentId)
+    : undefined;
+  // Intent amounts are USDC atomic units. Do not subtract them from another denomination.
+  const invoicePayments = allPayments.filter(
+    (p) =>
+      invoice.body.currency === "USDC" &&
+      p.invoice_id === invoice.id &&
+      !released(p),
+  );
+  const settled = invoicePayments
+    .filter((p) => p.state === "settled")
+    .reduce((total, p) => total + BigInt(p.amount), 0n);
+  const reserved = invoicePayments
+    .filter((p) => p.state !== "settled")
+    .reduce((total, p) => total + BigInt(p.amount), 0n);
+  const invoiced = BigInt(String(invoice.body.amount));
+  const remainingBalance =
+    invoiced > settled + reserved ? invoiced - settled - reserved : 0n;
+  const balance = {
+    invoiced: invoiced.toString(),
+    settled: settled.toString(),
+    reserved: reserved.toString(),
+    remaining: remainingBalance.toString(),
+  };
+  const paymentAmount =
+    currentPayment?.amount ?? requestedAmount ?? remainingBalance.toString();
   const payments = allPayments.filter((p) => p.id !== excludePaymentId);
   const policyPayments = payments.filter(
     (p) => !p.permit.policyId || p.permit.policyId === policy?.id,
@@ -242,13 +273,27 @@ export async function evaluateInvoice(
         "retainer" | "hourly" | "milestone",
       currency: String(engagement.body.currency ?? "USDC"),
       amount: String(engagement.body.amount),
+      hourlyRate:
+        engagement.body.hourlyRate === undefined
+          ? undefined
+          : String(engagement.body.hourlyRate),
+      maximumQuantity:
+        engagement.body.maximumQuantity === undefined
+          ? undefined
+          : String(engagement.body.maximumQuantity),
+      minimumPartial:
+        engagement.body.minimumPartial === undefined
+          ? undefined
+          : String(engagement.body.minimumPartial),
       commitmentCeiling: String(engagement.body.ceiling),
       partialPayments: Boolean(engagement.body.partialAllowed),
       authorizedAcceptors: (engagement.body.acceptors as string[]).map((x) =>
         x.toLowerCase(),
       ),
       acceptanceRequired: Boolean(engagement.body.acceptanceRequired),
-      acceptanceMaxAgeSeconds: 86400,
+      acceptanceMaxAgeSeconds: Number(
+        engagement.body.acceptanceMaxAgeSeconds ?? 86400,
+      ),
       destinations: [destination],
       asset: {
         symbol: "USDC",
@@ -271,6 +316,10 @@ export async function evaluateInvoice(
       periodEnd: `${invoice.body.periodEnd}T23:59:59Z`,
       dueAt: `${invoice.body.dueDate}T23:59:59Z`,
       amount: String(invoice.body.amount),
+      quantity:
+        invoice.body.quantity === undefined
+          ? undefined
+          : String(invoice.body.quantity),
       currency: String(invoice.body.currency),
       destination: {
         ...destination,
@@ -310,20 +359,31 @@ export async function evaluateInvoice(
       expiresAt: String(a.body.expiresAt),
       kind: "acceptance",
       source: source(a, "customer acceptance"),
-      revoked: a.body.invoiceVersion !== invoice.version,
+      revoked:
+        Boolean(a.body.revoked) ||
+        (a.body.invoiceTermsVersion ?? a.body.invoiceVersion) !==
+          (invoice.body.termsVersion ?? invoice.version),
     })),
     allocations,
     historySyncedAt,
     historyMaxAgeSeconds: 300,
     unmatchedExternalTransfers: unmatched,
     coverageReserved: false,
+    requestedAmount: paymentAmount,
   };
   let decision = verifyObligation(input);
+  if (remainingBalance === 0n && !excludePaymentId)
+    decision = addHold(
+      decision,
+      "INVOICE_CAP",
+      "This invoice has no unallocated balance; existing settled and reserved payments retain their original identities.",
+      invoicePayments.map((p) => p.id),
+    );
   const overlaps = (
     await db.query<StoredRecord>(
       `SELECT id,body FROM records WHERE organization_id=$1 AND kind='invoice' AND id<>$2 AND body->>'engagementId'=$3
  AND body->>'periodStart'<=$5 AND body->>'periodEnd'>=$4 AND (body->>'periodStart'<>$4 OR body->>'periodEnd'<>$5)
- AND (body->>'status'<>'canceled' OR EXISTS(SELECT 1 FROM payment_intents p WHERE p.organization_id=$1 AND p.invoice_id=records.id AND (p.state<>'failed' OR p.terminal_failure_proof IS NULL OR p.source_tx IS NOT NULL)))`,
+ AND (body->>'status'<>'canceled' OR EXISTS(SELECT 1 FROM payment_intents p WHERE p.organization_id=$1 AND p.invoice_id=records.id AND (p.state<>'failed' OR p.terminal_failure_proof IS NULL OR p.source_tx IS NOT NULL OR p.destination_tx IS NOT NULL)))`,
       [
         actor.organizationId,
         invoice.id,
@@ -377,13 +437,14 @@ export async function evaluateInvoice(
     decisionId,
     action: decision.action,
   });
-  return { id: decisionId, decision, input };
+  return { id: decisionId, decision, input, balance };
 }
 export async function preparePayment(
   db: Database,
   actor: Actor,
   invoiceId: string,
   key: string,
+  requestedAmount?: string,
 ) {
   requireRole(actor, ["owner", "approver", "operator"]);
   if (key.length < 8 || key.length > 160)
@@ -400,11 +461,14 @@ export async function preparePayment(
     )
   ).rows[0];
   if (existing) {
-    if (existing.invoice_id !== invoiceId)
+    if (
+      existing.invoice_id !== invoiceId ||
+      (requestedAmount !== undefined && requestedAmount !== existing.amount)
+    )
       throw new ServiceError(
         409,
         "IDEMPOTENCY_CONFLICT",
-        "This operation key belongs to a different invoice.",
+        "This operation key belongs to a different invoice or exact payment amount.",
       );
     if (existing.invalidated_at)
       throw new ServiceError(
@@ -414,7 +478,25 @@ export async function preparePayment(
       );
     return { id: existing.id, state: existing.state, permit: existing.permit };
   }
-  const result = await evaluateInvoice(db, actor, invoiceId);
+  const unresolved = (
+    await db.query<PaymentRow>(
+      "SELECT * FROM payment_intents WHERE organization_id=$1 AND invoice_id=$2 AND state<>'settled'",
+      [actor.organizationId, invoiceId],
+    )
+  ).rows.find((p) => !released(p));
+  if (unresolved)
+    throw new ServiceError(
+      409,
+      "PAYMENT_IN_PROGRESS",
+      "The existing unresolved payment retains its identity and reservation until independent reconciliation proves settlement or terminal failure.",
+    );
+  const result = await evaluateInvoice(
+    db,
+    actor,
+    invoiceId,
+    undefined,
+    requestedAmount,
+  );
   const blocking = result.decision.findings.filter(
       (f) => f.severity !== "info",
     ),

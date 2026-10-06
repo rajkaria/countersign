@@ -35,6 +35,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { Brand } from "./brand";
+import { OperationsCenter } from "./console/operations-center";
 import {
   INITIAL_INVOICES,
   type DemoInvoice,
@@ -52,6 +53,7 @@ const navigation = [
   { id: "obligations", label: "Obligations", icon: Files },
   { id: "cases", label: "Needs a decision", icon: CirclePause },
   { id: "plan", label: "Payment plan", icon: CalendarDays },
+  { id: "operations", label: "Operations desk", icon: CalendarDays },
   { id: "activity", label: "Activity & receipts", icon: Activity },
   { id: "authority", label: "Authority & protection", icon: ShieldCheck },
   { id: "recovery", label: "Recovery lab", icon: FlaskConical },
@@ -440,6 +442,7 @@ export function Workspace({ view = "" }: { view?: string }) {
               </div>
             </>
           )}
+          {view === "operations" && <OperationsCenter demo role="owner" />}
           {["", "obligations", "cases"].includes(view) && (
             <section className="panel invoice-panel">
               <div className="panel-heading">

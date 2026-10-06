@@ -1,0 +1,18 @@
+services:
+  database:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: countersign
+      POSTGRES_USER: countersign
+      POSTGRES_PASSWORD: local-countersign-only
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - countersign_local_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U countersign -d countersign"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+volumes:
+  countersign_local_postgres:

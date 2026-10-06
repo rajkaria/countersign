@@ -35,3 +35,20 @@ export function timestamp(value: string): number {
     throw new Error("Invalid ISO timestamp");
   return result;
 }
+
+/** Quantities use at most six decimal places; charges must resolve to whole atomic units. */
+export function quantityUnits(value: string): bigint {
+  if (!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(value))
+    throw new Error(
+      "Expected a nonnegative quantity with at most six decimal places",
+    );
+  return units(value, 6);
+}
+export function hourlyCharge(rate: Atomic, quantity: string): bigint {
+  const product = atomic(rate) * quantityUnits(quantity);
+  if (product % 1_000_000n !== 0n)
+    throw new Error(
+      "Hourly charge requires fractional atomic units; review the rate or quantity instead of rounding",
+    );
+  return atomic((product / 1_000_000n).toString());
+}

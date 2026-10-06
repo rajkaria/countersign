@@ -1,0 +1,244 @@
+.ops-center {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.ops-center h2 {
+  font-size: clamp(24px, 3vw, 34px);
+  letter-spacing: -0.04em;
+  margin: 5px 0 12px;
+}
+.ops-center h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.ops-heading,
+.ops-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ops-heading > div {
+  max-width: 720px;
+}
+.ops-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.ops-stat {
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--line, #d9dedd);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+}
+.ops-stat span {
+  font-size: 13px;
+  color: #52605b;
+}
+.ops-stat strong {
+  font-size: clamp(19px, 2vw, 28px);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ops-stat small {
+  font-size: 12px;
+  color: #52605b;
+}
+.ops-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line, #d9dedd);
+  border-radius: 12px;
+  background: #fff;
+}
+.ops-scroll-hint {
+  display: none;
+}
+.ops-center table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.ops-center th,
+.ops-center td {
+  padding: 16px;
+  border-bottom: 1px solid var(--line, #d9dedd);
+  vertical-align: top;
+}
+.ops-center th {
+  font-size: 11px;
+  color: #52605b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #f5f7f6;
+}
+.ops-center td > span,
+.ops-digest span {
+  display: block;
+  color: #52605b;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.ops-center details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.ops-center details p {
+  max-width: 300px;
+}
+.ops-cases {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.ops-case,
+.ops-bottom > section {
+  padding: 22px;
+  border: 1px solid var(--line, #d9dedd);
+  border-radius: 12px;
+  background: #fff;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ops-case h4 {
+  margin: 0;
+}
+.ops-case > p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ops-escalated {
+  font-size: 12px;
+  padding: 4px 9px;
+  background: #fff1dc;
+  color: #7c4509;
+  border-radius: 4px;
+}
+.ops-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.ops-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+}
+.ops-center input,
+.ops-center select,
+.ops-center textarea {
+  font: inherit;
+  padding: 10px;
+  border: 1px solid #aebbb4;
+  border-radius: 6px;
+  max-width: 100%;
+  min-width: 0;
+  background: #fff;
+  color: #1f3027;
+}
+.ops-center select {
+  width: 100%;
+}
+.ops-center textarea {
+  min-height: 92px;
+}
+.ops-center .check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ops-full {
+  grid-column: 1/-1;
+}
+.ops-bottom {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+  min-width: 0;
+}
+.ops-digest {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+.ops-digest li {
+  padding: 12px;
+  background: #f5f7f6;
+  border-radius: 6px;
+}
+.ops-digest strong {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ops-bottom > section > p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ops-empty {
+  padding: 22px;
+  background: #f5f7f6;
+  color: #52605b;
+  border-radius: 8px;
+}
+.ops-notice {
+  padding: 12px 16px;
+  background: #e8f4ec;
+  border: 1px solid #bdd7c6;
+  border-radius: 6px;
+}
+.ops-center .button {
+  max-width: 100%;
+  white-space: normal;
+}
+.ops-center :focus-visible {
+  outline: 3px solid #2b7053;
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .ops-scroll-hint {
+    display: block;
+    font-size: 12px;
+    color: #52605b;
+    margin: 0;
+  }
+  .ops-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ops-bottom,
+  .ops-cases {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 500px) {
+  .ops-form {
+    grid-template-columns: 1fr;
+  }
+  .ops-full {
+    grid-column: auto;
+  }
+  .ops-case,
+  .ops-bottom > section {
+    padding: 16px;
+  }
+  .ops-center th,
+  .ops-center td {
+    padding: 12px;
+  }
+  .ops-center .ops-heading > button {
+    width: 100%;
+  }
+}

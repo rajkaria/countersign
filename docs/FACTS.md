@@ -1,6 +1,6 @@
 # Release status
 
-Updated 28 September 2026. This page distinguishes software capability from externally verified production operation.
+Updated 6 October 2026. This page distinguishes software capability from externally verified production operation.
 
 ## Current hosting
 
@@ -13,6 +13,10 @@ The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.ver
 - Deterministic obligation checks, commitment planning, operational state machines, receipt verification and cohort-separated evaluation.
 - Constrained Safe module, restricted CCTP adapter and reserved protection contracts with local tests.
 - PostgreSQL schema, migrations, durable outbox worker and documented integration adapters.
+- Exact hourly quantities, partial installment preparation, versioned corrections and acceptance revocation.
+- A functional tenant console with cash planning, payment details, reconciliation, scoped access administration and one-time capability display.
+- An operations desk with currency-separated payable totals, exception owners/deadlines, quiet-hour preferences, reminder previews and accounting period packs that disclose unresolved settlement.
+- Redacted activation diagnostics, optional read-only provider/deployment probes, isolated restore fingerprints and a separate operations-only reminder worker.
 
 ## Not established by this release
 

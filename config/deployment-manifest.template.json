@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "organizationId": "",
+  "chainId": null,
+  "safe": "",
+  "module": "",
+  "token": "",
+  "tokenDecimals": null,
+  "moduleCodeHash": "",
+  "circleWallet": "",
+  "circleChain": "",
+  "verifier": "",
+  "verifiedAt": "",
+  "expiresAt": "",
+  "compatibility": {
+    "cliVersion": "",
+    "moduleExecutionTransaction": "",
+    "revocationTransaction": "",
+    "renewalEvidenceHash": ""
+  },
+  "securityReview": {
+    "reviewer": "",
+    "reportHash": "",
+    "approvedAt": ""
+  },
+  "testnet": true
+}

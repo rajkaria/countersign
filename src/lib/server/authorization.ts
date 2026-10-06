@@ -357,7 +357,10 @@ export { businessEvidenceCommitment } from "../domain/evidence";
 export async function persistCoveredDecision(
   db: Database,
   actor: Actor,
-  prior: Awaited<ReturnType<typeof evaluateInvoice>>,
+  prior: Pick<
+    Awaited<ReturnType<typeof evaluateInvoice>>,
+    "id" | "decision" | "input"
+  >,
   proof: { reserve: string; coverageId: string; permitDigest: string },
 ) {
   if (

@@ -1,0 +1,384 @@
+.live-shell .console-context {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #42533d;
+}
+.live-shell .console-context button.text-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  color: #365c31;
+}
+.live-shell .console-balance {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #dce6d2;
+  border-radius: 6px;
+  margin: 18px 0 24px;
+  background: #f7faf4;
+}
+.live-shell .console-balance > div {
+  padding: 16px;
+  border-right: 1px solid #dce6d2;
+  min-width: 0;
+}
+.live-shell .console-balance > div:last-child {
+  border-right: 0;
+}
+.live-shell .console-balance span {
+  display: block;
+  font-size: 10px;
+  color: #506448;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.live-shell .console-balance strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.live-shell .console-facts {
+  margin: 18px 0;
+  font-size: 12px;
+}
+.live-shell .console-facts > div {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(0, 2fr);
+  border-top: 1px solid #e3ebdb;
+  padding: 12px 0;
+  gap: 20px;
+  line-height: 1.6;
+}
+.live-shell .console-facts dt {
+  color: #526449;
+  text-transform: capitalize;
+}
+.live-shell .console-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.live-shell .console-facts dd a,
+.live-shell .console-evidence a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: #315e30;
+}
+.live-shell .console-review {
+  padding: 20px;
+  background: #f7f9f2;
+  border: 1px solid #dce5d3;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+.live-shell .console-review .panel-heading {
+  margin-bottom: 12px;
+  padding: 0;
+}
+.live-shell .console-review h3,
+.live-shell .console-related h3,
+.live-shell .console-history h3 {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.live-shell .console-review p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin-bottom: 12px;
+}
+.live-shell .console-finding {
+  padding: 12px;
+  margin: 10px 0;
+  border-left: 3px solid #ac7954;
+  background: #fffaf6;
+  overflow-wrap: anywhere;
+}
+.live-shell .console-finding.info {
+  border-color: #6b8b51;
+  background: #fafcf8;
+}
+.live-shell .console-finding strong {
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.live-shell .console-finding p {
+  margin: 7px 0;
+  font-size: 12px;
+}
+.live-shell .console-finding small {
+  font-size: 10px;
+}
+.live-shell .console-related {
+  border-top: 1px solid #e2ead8;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.live-shell .console-evidence {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #e0e9d7;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.live-shell .console-evidence p {
+  margin: 10px 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.live-shell .console-evidence small {
+  display: block;
+  margin-top: 10px;
+  color: #53644a;
+  font-size: 10px;
+}
+.live-shell code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-size: 11px;
+}
+.live-shell .console-history {
+  border-top: 1px solid #e3ebdb;
+  padding-top: 20px;
+  margin-top: 12px;
+}
+.live-shell .console-history .panel-heading {
+  padding: 0;
+  gap: 18px;
+  align-items: start;
+}
+.live-shell .console-history .panel-heading strong {
+  font-size: 14px;
+}
+.live-shell .console-history .live-form {
+  margin-top: 20px;
+}
+.live-shell .live-form fieldset {
+  min-width: 0;
+  border: 1px solid #d9e3cd;
+  border-radius: 6px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+.live-shell .live-form legend {
+  font-size: 12px;
+  padding: 0 6px;
+  color: #405837;
+  line-height: 1.6;
+}
+.live-shell .live-form fieldset > label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  color: #405837;
+}
+.live-shell .live-form fieldset > .check-label {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+.live-shell .live-form fieldset p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.live-shell .live-form fieldset input[type="checkbox"] {
+  width: auto;
+}
+.live-shell .console-secret {
+  background: #f7faf2;
+  padding: 20px;
+  border: 1px solid #c9d9b7;
+  border-radius: 7px;
+  margin-bottom: 24px;
+}
+.live-shell .console-secret h3 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+.live-shell .console-secret p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.live-shell .console-secret input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #c8d8b4;
+  background: white;
+  border-radius: 4px;
+  font-size: 12px;
+  min-width: 0;
+}
+.live-shell .console-secret .action-row {
+  margin-top: 14px;
+}
+.live-shell .console-filter {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.live-shell .console-filter label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 150px;
+  font-size: 11px;
+  color: #465b3f;
+}
+.live-shell .console-filter input,
+.live-shell .console-filter select {
+  border: 1px solid #dae4ce;
+  border-radius: 5px;
+  background: #fcfdf9;
+  padding: 10px 12px;
+  color: #354f2a;
+  font-size: 12px;
+  min-width: 0;
+}
+.live-shell .console-version-note {
+  border-left: 3px solid #7e9c61;
+  padding: 12px;
+  background: #f5f8ef;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.live-shell .live-sidebar nav button:focus-visible,
+.live-shell .live-record-row:focus-visible,
+.live-shell .text-link:focus-visible {
+  outline: 2px solid #4b7134;
+  outline-offset: 3px;
+}
+.live-shell .live-record-row[aria-pressed="true"] {
+  background: #eff5e6;
+}
+.live-shell .live-record-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.live-shell .live-modal {
+  width: 620px;
+}
+.live-shell .live-modal .live-alert {
+  margin-bottom: 0;
+}
+.live-shell .console-live-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  align-items: center;
+  font-size: 11px;
+  color: #4b5e40;
+  line-height: 1.8;
+}
+.live-shell .live-alert {
+  overflow-wrap: anywhere;
+}
+.live-shell .live-alert button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+@media (max-width: 1000px) {
+  .live-shell .console-balance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .live-shell .console-balance > div:nth-child(2) {
+    border-right: 0;
+  }
+  .live-shell .console-balance > div:nth-child(-n + 2) {
+    border-bottom: 1px solid #dce6d2;
+  }
+}
+@media (max-width: 700px) {
+  .live-shell .panel-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .live-shell .console-balance > div {
+    padding: 12px;
+  }
+  .live-shell .console-balance strong {
+    font-size: 12px;
+  }
+  .live-shell .console-facts > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .live-shell .console-review {
+    padding: 14px;
+  }
+  .live-shell .action-row {
+    gap: 8px;
+  }
+  .live-shell .action-row .button {
+    flex: 1 1 auto;
+  }
+  .live-shell .live-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .live-shell .console-secret {
+    padding: 16px;
+  }
+  .live-shell .live-record-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .live-shell .live-record-row > span:first-child {
+    flex-basis: 100%;
+  }
+  .live-shell .console-history .panel-heading {
+    display: block;
+  }
+  .live-shell .live-form fieldset {
+    padding: 12px;
+  }
+  .live-shell .live-sidebar nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .live-shell .live-sidebar nav > button {
+    justify-content: center;
+    font-size: 10px;
+    min-height: 40px;
+    padding: 9px 3px;
+  }
+  .live-shell .live-modal {
+    max-width: calc(100vw - 24px);
+    padding: 20px;
+  }
+  .live-shell .console-secret .button {
+    font-size: 11px;
+    padding: 9px 12px;
+  }
+}
+
+/* Fixed desktop navigation must remain reachable in shorter viewports. */
+@media (min-width: 701px) {
+  .live-shell .live-sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .live-shell .live-sidebar nav,
+  .live-shell .live-sidebar .sidebar-bottom {
+    flex-shrink: 0;
+  }
+}

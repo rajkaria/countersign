@@ -5,7 +5,7 @@ import {
   runStandingAutomation,
   persistStandingObservation,
 } from "../src/lib/server/automation";
-import { notifyOperator } from "../src/lib/integrations/notifications";
+import { processOperationsNotice } from "../src/lib/server/notification-delivery";
 import { evaluateInvoice } from "../src/lib/server/review";
 import {
   CircleExecutor,
@@ -121,14 +121,7 @@ async function main() {
           return;
         }
         if (job.kind === "notify") {
-          await notifyOperator(
-            {
-              organizationId: job.organization_id,
-              eventId: String(job.payload.eventId),
-              kind: job.payload.kind as
-                "exception" | "overdue" | "stuck_payment" | "coverage_capacity",
-              summary: String(job.payload.summary),
-            },
+          await processOperationsNotice(database(), job,
             {
               enabled: process.env.NOTIFICATIONS_ENABLED === "true",
               organizationId: manifest.organizationId,

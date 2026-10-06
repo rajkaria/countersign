@@ -10,7 +10,14 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The landing page, handbook and synthetic demo run without credentials. For a real workspace, configure DATABASE_URL, APP_ORIGIN and DOCUMENT_ENCRYPTION_KEY. Generate a 32-byte encryption key with openssl rand -base64 32 and store it securely. Never send credentials through chat or commit them.
+The landing page, handbook and synthetic demo run without credentials. For a real workspace, configure DATABASE_URL, APP_ORIGIN and DOCUMENT_ENCRYPTION_KEY. Generate a 32-byte encryption key with openssl rand -base64 32 and store it securely. Never send credentials through chat or commit them. The [activation guide](activation.md) provides the complete owner checklist, a loopback-only PostgreSQL development launcher, separate host templates and read-only setup diagnostics.
+
+```sh
+npm run doctor
+node --env-file=.env.local --import tsx scripts/activation-check.ts --probe --json
+```
+
+The default diagnostic reads local configuration only; remote readbacks require the explicit probe flag. Configured values and verified readbacks appear separately. Financial authorization, provider terms, consent, funded protection and independent review remain owner gates.
 
 ## Database migration
 
@@ -20,7 +27,7 @@ Use a new dedicated PostgreSQL database. Do not reuse unrelated production table
 node --env-file=.env.local --import tsx scripts/migrate.ts
 ```
 
-The migration runner serializes with an advisory lock, tracks versions and executes each migration in a transaction. All exposed user tables enable row-level security with no anonymous policies. The current runtime connects as a dedicated server-side database owner, which bypasses row-level security; application membership and tenant predicates are therefore mandatory and tested. Do not reuse a public client role or expose the owner connection. A future restricted runtime role requires matching tenant policies before use. Never grant these tables to public client roles.
+The migration runner serializes with an advisory lock, tracks versions and executes each migration in a transaction. The read-only activation probe discovers the exact migration list from this checkout and fails on missing or unknown deployed versions, missing tables and missing added security columns. All exposed user tables enable row-level security with no anonymous policies. The current runtime connects as a dedicated server-side database owner, which bypasses row-level security; application membership and tenant predicates are therefore mandatory and tested. Do not reuse a public client role or expose the owner connection. A future restricted runtime role requires matching tenant policies before use. Never grant these tables to public client roles.
 
 ## Verification
 
@@ -43,7 +50,7 @@ Read /api/health for application availability and /api/ready for database readin
 
 Run the worker on a durable host with database access and separately protected Circle credentials. Keep the executor and verifier identities distinct. Alert on expired leases, stuck payment intents, stale history, due obligations, provider failure, insufficient gas and insufficient coverage. Review operational alerts without converting expected configuration gates into claimed successful executions.
 
-Back up PostgreSQL and the document key separately. Test restore before accepting real customer records. Preserve pending payment identities across restore. Establish a retention policy with customers and revoke vendor links and intake keys when they are no longer needed.
+Back up PostgreSQL and the document key separately. Test restore before accepting real customer records. Preserve pending payment identities across restore. The activation guide's read-only restore fingerprint command compares original payment/outbox/relay identities, versioned records, encrypted bytes and ledger commitments without outputting private rows; it supplements provider backup verification and authenticated/key-recovery tests. Establish a retention policy with customers and revoke vendor links and intake keys when they are no longer needed.
 
 ## Persistent worker container
 
@@ -56,4 +63,16 @@ docker build -f Dockerfile.worker -t countersign-worker .
 docker run --init --restart unless-stopped --env-file /secure/countersign-worker.env countersign-worker
 ```
 
-The container definition is supplied for deployment; it has not been built or hosted as part of the static Vercel release. The worker performs a periodic read-only Safe refresh, standing obligation reassessment and leased job dispatch. A missing manifest or database is a startup gate. Do not put Circle credentials or the verifier key in the web deployment unless a documented web authorization operation requires the isolated verifier; prefer separate verifier custody for production.
+The container definition is supplied for deployment; it has not been built or hosted as part of the static Vercel release. The worker performs a periodic read-only Safe refresh, standing obligation reassessment and leased job dispatch. A missing manifest or database is a startup gate. Keep the Circle profile on the worker and the verifier key absent there. The current payment authorization endpoint needs the verifier key in its service; production review must decide whether to isolate that authorization service from the broader web deployment. The `config/worker.env.example` and `config/verifier.env.example` templates encode this distinction. Run the diagnostic separately on each host using its matching profile.
+
+## Observe-stage operations worker
+
+Use `scripts/operations-worker.ts` independently for due-date/exception digests while payment delegation remains disabled. It needs DATABASE_URL and OPERATIONS_ORGANIZATION_ID; no execution manifest, Circle profile, verifier key or document key is required. Its default mode validates configuration without database/network access. `--preview` is read-only, and `--run` explicitly starts the durable loop. Delivery requires both global notification configuration and authenticated workspace opt-in, respects quiet hours and preserves uncertain-send identities.
+
+```sh
+node --env-file=/secure/countersign-operations.env --import tsx scripts/operations-worker.ts --preview
+# Run after the owner explicitly selects a destination and opts in.
+node --env-file=/secure/countersign-operations.env --import tsx scripts/operations-worker.ts --run
+```
+
+`config/operations-worker.env.example` and `Dockerfile.operations-worker` provide isolated deployment inputs. The operations worker leases only its organization's operations notices and cannot dispatch financial jobs. The container template is supplied; deployment and actual delivery must be verified separately. See the activation guide before enabling it.

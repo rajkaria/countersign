@@ -15,10 +15,11 @@ export type OutboxJob = {
 export async function claimJob(
   db: Database,
   organizationId?: string,
+  kinds?: string[],
 ): Promise<OutboxJob | null> {
   const result = await db.query<OutboxJob>(
-    `WITH candidate AS (SELECT id FROM outbox WHERE completed_at IS NULL AND ($2::uuid IS NULL OR organization_id=$2) AND attempts<8 AND available_at<=now() AND (leased_until IS NULL OR leased_until<now()) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE outbox o SET leased_until=now()+interval '90 seconds',lease_token=$1,attempts=o.attempts+1 FROM candidate c WHERE o.id=c.id RETURNING o.id,o.organization_id,o.kind,o.payload,o.lease_token,o.attempts`,
-    [randomUUID(), organizationId ?? null],
+    `WITH candidate AS (SELECT id FROM outbox WHERE completed_at IS NULL AND ($2::uuid IS NULL OR organization_id=$2) AND (($3::text[] IS NULL AND kind<>'operations.notify') OR kind=ANY($3::text[])) AND attempts<8 AND available_at<=now() AND (leased_until IS NULL OR leased_until<now()) ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE outbox o SET leased_until=now()+interval '90 seconds',lease_token=$1,attempts=o.attempts+1 FROM candidate c WHERE o.id=c.id RETURNING o.id,o.organization_id,o.kind,o.payload,o.lease_token,o.attempts`,
+    [randomUUID(), organizationId ?? null, kinds ?? null],
   );
   return result.rows[0] ?? null;
 }

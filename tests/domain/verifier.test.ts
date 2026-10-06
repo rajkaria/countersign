@@ -267,3 +267,47 @@ describe("adversarial approved terms and precision", () => {
     ).toBe(false);
   });
 });
+
+describe("exact hourly charges", () => {
+  it("checks fractional hours with integer arithmetic", () => {
+    const f = createDemoFixture();
+    const hourly = {
+      ...f,
+      engagement: {
+        ...f.engagement,
+        billingModel: "hourly" as const,
+        hourlyRate: "2000000",
+        maximumQuantity: "4.5",
+      },
+      invoice: { ...f.invoice, quantity: "1.25", amount: "2500000" },
+    };
+    expect(verifyObligation(hourly).action).toBe("PAY");
+    expect(
+      verifyObligation({
+        ...hourly,
+        invoice: { ...hourly.invoice, amount: "2500001" },
+      }).findings.map((f) => f.code),
+    ).toContain("RATE_MISMATCH");
+    expect(
+      verifyObligation({
+        ...hourly,
+        invoice: { ...hourly.invoice, quantity: "4.500001" },
+      }).findings.map((f) => f.code),
+    ).toContain("HOURS_EXCEEDED");
+  });
+  it("holds a charge requiring fractional atomic units rather than rounding", () => {
+    const f = createDemoFixture();
+    const d = verifyObligation({
+      ...f,
+      engagement: {
+        ...f.engagement,
+        billingModel: "hourly",
+        hourlyRate: "1",
+        maximumQuantity: "1",
+      },
+      invoice: { ...f.invoice, quantity: "0.5", amount: "1" },
+    });
+    expect(d.action).toBe("HOLD");
+    expect(d.findings.map((f) => f.code)).toContain("INVALID_INPUT");
+  });
+});

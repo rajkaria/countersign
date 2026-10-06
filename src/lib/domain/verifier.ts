@@ -1,4 +1,4 @@
-import { atomic, timestamp } from "./money";
+import { atomic, timestamp, hourlyCharge, quantityUnits } from "./money";
 import type { Decision, Finding, VerificationInput } from "./types";
 const address = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 /** Pure policy verification. Input identity/approvals must come from the authenticated repository, never extraction or model output. */
@@ -123,9 +123,9 @@ export function verifyObligation(input: VerificationInput): Decision {
           "Approved rate and invoice quantity are required.",
         );
       else {
-        const hours = atomic(i.quantity),
-          max = atomic(e.maximumQuantity);
-        contractualAmount = atomic(e.hourlyRate) * hours;
+        const hours = quantityUnits(i.quantity),
+          max = quantityUnits(e.maximumQuantity);
+        contractualAmount = hourlyCharge(e.hourlyRate, i.quantity);
         if (hours > max)
           add(
             "HOURS_EXCEEDED",

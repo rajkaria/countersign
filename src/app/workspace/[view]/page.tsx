@@ -8,6 +8,7 @@ const views = [
   "authority",
   "recovery",
   "evidence",
+  "operations",
 ];
 export function generateStaticParams() {
   return views.map((view) => ({ view }));

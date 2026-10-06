@@ -19,6 +19,10 @@ beforeAll(async () => {
     org,
     "Test",
   ]);
+  await db.query("INSERT INTO members VALUES($1,$2,'owner')", [
+    org,
+    actor.wallet,
+  ]);
   await db.query(
     "INSERT INTO records(organization_id,kind,id,body,created_by) VALUES($1,'invoice',$2,$3,$4)",
     [

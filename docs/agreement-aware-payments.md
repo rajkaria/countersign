@@ -26,7 +26,7 @@ Countersign stores activity separately from acceptance. The acceptor must be cur
 
 A partial payment is not permission to forget the remainder or pay the same portion twice. Approved partial terms, prior allocations and the commitment ceiling all matter. Pending and uncertain operations must count until nonexecution or settlement is established.
 
-The domain verifier models explicit partial amounts and minimums. The current application preparation endpoint derives the recorded invoice amount; do not assume a general partial-payment amount editor or a complete hourly quantity workflow. Product labels must not be mistaken for end-to-end activation. See [agreements](/docs/agreements) and [verification](/docs/verification).
+The console and preparation API support exact partial amounts and approved minimums. Omitting an amount selects the unallocated remainder; existing uncertain operations retain their identity and block a new preparation. Hourly terms and decimal billed quantities flow through the same deterministic checks. These software workflows still require separate external activation for real execution. See [agreements](/docs/agreements) and [verification](/docs/verification).
 
 ## A destination needs its own review
 

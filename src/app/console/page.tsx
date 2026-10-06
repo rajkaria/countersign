@@ -7,27 +7,41 @@ import {
   Plus,
   ShieldCheck,
   FileText,
-  Download,
   RefreshCw,
   Check,
   Wallet,
   Settings,
-  Users,
   Inbox,
   Clock,
+  Activity,
 } from "lucide-react";
-type RecordRow = {
-  id: string;
-  kind: string;
-  version: number;
-  body: Record<string, unknown>;
-};
+import { OperationsCenter } from "@/components/console/operations-center";
+import { HistoryReconciliation } from "@/components/console/history-reconciliation";
+import { PaymentActivity } from "@/components/console/payment-activity";
+import { WorkspaceAccess } from "@/components/console/workspace-access";
+import { RecordInspector } from "@/components/console/record-inspector";
+import {
+  formatAmount as money,
+  toAtomic as atomic,
+  toDecimal as decimal,
+  humanize,
+  type WorkspaceRecord as RecordRow,
+  type WorkspacePayment,
+} from "@/components/console/format";
+import "./console.css";
 type Org = { id: string; name: string; role: string };
 type Snapshot = {
   records: RecordRow[];
-  events: { action: string; created_at: string; actor: string }[];
-  payments: { id: string; amount: string; state: string }[];
+  events: {
+    action: string;
+    created_at: string;
+    actor: string;
+    entity_id?: string;
+    details?: Record<string, unknown>;
+  }[];
+  payments: WorkspacePayment[];
   role: string;
+  executionEnabled?: boolean;
 };
 const initial: Snapshot = {
   records: [],
@@ -35,26 +49,57 @@ const initial: Snapshot = {
   payments: [],
   role: "viewer",
 };
-const money = (v: unknown) => {
-  const n = BigInt(String(v ?? 0));
-  return `$${(n / 1000000n).toLocaleString()}.${((n % 1000000n) / 10000n).toString().padStart(2, "0")}`;
-};
-const atomic = (s: string) => {
-  if (!/^\d+(\.\d{1,6})?$/.test(s))
-    throw new Error(
-      "Enter a positive dollar amount with at most six decimal places.",
-    );
-  const [a, b = ""] = s.split(".");
-  return (BigInt(a) * 1000000n + BigInt(b.padEnd(6, "0"))).toString();
-};
-const decimal = (value: unknown) => {
-  const n = BigInt(String(value ?? "0"));
-  return `${n / 1000000n}.${(n % 1000000n).toString().padStart(6, "0")}`;
+type Review = {
+  decision: {
+    action: string;
+    reason: string;
+    findings: {
+      code: string;
+      severity: string;
+      message: string;
+      sourceIds: string[];
+    }[];
+    nextCheck?: string;
+    validUntil?: string;
+  };
+  balance?: Record<string, string>;
 };
 const today = () => new Date().toISOString().slice(0, 10);
 export default function Console() {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const orgRef = useRef("");
+  const requestGeneration = useRef(0);
+  const operationBusy = useRef(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [snapshotOrg, setSnapshotOrg] = useState("");
+  const [search, setSearch] = useState("");
+  const [planPolicy, setPlanPolicy] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [formBilling, setFormBilling] = useState("retainer");
+  const [formCurrency, setFormCurrency] = useState("USDC");
+  const [extractionKind, setExtractionKind] = useState("agreement");
+  const [prepareKey, setPrepareKey] = useState("");
+  const [policyExpiry] = useState(() => {
+    const date = new Date(Date.now() + 30 * 86400000);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    return date.toISOString().slice(0, 16);
+  });
+  const [invoiceBalance, setInvoiceBalance] = useState<{
+    invoiceId: string;
+    invoiceVersion: number;
+    data: Record<string, string>;
+    overallocated: boolean;
+  } | null>(null);
+  const [review, setReview] = useState<{
+    invoiceId: string;
+    result: Review;
+  } | null>(null);
+  const [secret, setSecret] = useState<{
+    title: string;
+    value: string;
+    description: string;
+  } | null>(null);
   const [documents, setDocuments] = useState<
       { id: string; filename: string; mime: string }[]
     >([]),
@@ -95,51 +140,122 @@ export default function Console() {
     if (form) dialogRef.current?.showModal();
     else dialogRef.current?.close();
   }, [form]);
-  const call = useCallback(async (path: string, body?: unknown) => {
-    const r = await fetch(
-      path,
-      body
-        ? {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        : undefined,
-    );
-    const data = await r.json();
-    if (!r.ok)
-      throw new Error(data.error?.message ?? "Request could not be completed.");
-    return data;
-  }, []);
+  const call = useCallback(
+    async (path: string, body?: unknown, method = "POST") => {
+      const response = await fetch(
+        path,
+        body !== undefined
+          ? {
+              method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            }
+          : { cache: "no-store" },
+      );
+      if (response.status === 204) return null;
+      const data = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          data?.error?.message ??
+            `Request failed (${response.status}). Refresh and try again.`,
+        );
+      return data;
+    },
+    [],
+  );
   const load = useCallback(
     async (orgId: string) => {
+      const generation = ++requestGeneration.current;
       const [snap, docs, intake] = await Promise.all([
         call(`/api/organizations/${orgId}/snapshot`),
         call(`/api/organizations/${orgId}/documents`),
         call(`/api/organizations/${orgId}/intake-events`),
       ]);
+      if (orgRef.current !== orgId || generation !== requestGeneration.current)
+        return;
       setSnapshot(snap);
       setDocuments(docs);
       setForwarded(intake);
+      setSnapshotOrg(orgId);
+      setSelected((current) =>
+        current
+          ? (snap.records.find(
+              (r: RecordRow) => r.id === current.id && r.kind === current.kind,
+            ) ?? null)
+          : null,
+      );
     },
     [call],
   );
   useEffect(() => {
+    let active = true;
     call("/api/auth/me")
       .then((data) => {
+        if (!active) return;
         setWallet(data.wallet);
         setOrgs(data.organizations);
         if (data.organizations[0]) setOrg(data.organizations[0].id);
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [call]);
   useEffect(() => {
+    orgRef.current = org;
     if (!org) return;
     let active = true;
-    call(`/api/organizations/${org}/snapshot`)
+    // Clear all workspace-scoped state before the next tenant request begins.
+    const reset = async () => {
+      setWorkspaceLoading(true);
+      setSnapshot(initial);
+      setSnapshotOrg("");
+      setDocuments([]);
+      setForwarded([]);
+      setChanges([]);
+      setSelected(null);
+      setForm("");
+      setExtraction(null);
+      setReview(null);
+      setSecret(null);
+      setPlanPolicy("");
+      setNotice("");
+      setError("");
+      try {
+        await load(org);
+      } catch (e) {
+        if (active)
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Workspace data could not be loaded.",
+          );
+      } finally {
+        if (active) setWorkspaceLoading(false);
+      }
+    };
+    void reset();
+    return () => {
+      active = false;
+      requestGeneration.current += 1;
+    };
+  }, [org, load]);
+  useEffect(() => {
+    if (
+      !org ||
+      view !== "settings" ||
+      !["owner", "approver"].includes(snapshot.role)
+    )
+      return;
+    let active = true;
+    call(`/api/organizations/${org}/destination-changes`)
       .then((data) => {
-        if (active) setSnapshot(data);
+        if (active) setChanges(data);
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -147,40 +263,93 @@ export default function Console() {
     return () => {
       active = false;
     };
-  }, [org, call]);
+  }, [org, view, snapshot.role, call]);
   useEffect(() => {
-    if (org) {
-      call(`/api/organizations/${org}/documents`)
-        .then(setDocuments)
-        .catch(() => setDocuments([]));
-      call(`/api/organizations/${org}/intake-events`)
-        .then(setForwarded)
-        .catch(() => setForwarded([]));
-    }
-  }, [org, call]);
-  useEffect(() => {
-    if (org && view === "settings")
-      call(`/api/organizations/${org}/destination-changes`)
-        .then(setChanges)
-        .catch(() => setChanges([]));
-  }, [org, view, call]);
+    if (!org || snapshotOrg !== org || selected?.kind !== "invoice") return;
+    let active = true;
+    call(`/api/organizations/${org}/invoices/${selected.id}/balance`)
+      .then((data) => {
+        if (!active) return;
+        if (data.invoiceVersion !== selected.version) {
+          setError(
+            "Invoice changed while loading allocations. Refresh and review the current version.",
+          );
+          return;
+        }
+        setInvoiceBalance({
+          invoiceId: selected.id,
+          invoiceVersion: data.invoiceVersion,
+          data: {
+            invoiced: data.invoiced,
+            settled: data.settled,
+            reserved: data.reserved,
+            remaining: data.remaining,
+          },
+          overallocated: data.overallocated,
+        });
+      })
+      .catch((e) => {
+        if (active)
+          setError(
+            `Exact invoice allocation could not be loaded. ${e.message}`,
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [org, snapshotOrg, selected, call]);
   const items = (kind: string) =>
     snapshot.records.filter((r) => r.kind === kind);
   const vendors = items("vendor"),
     engagements = items("engagement"),
     invoices = items("invoice");
+  const role = snapshot.role;
+  const canOperate = ["owner", "approver", "operator"].includes(role);
+  const canApprove = ["owner", "approver"].includes(role);
+  const isOwner = role === "owner";
+  const exactBalance =
+    selected?.kind === "invoice" &&
+    invoiceBalance?.invoiceId === selected.id &&
+    invoiceBalance.invoiceVersion === selected.version
+      ? invoiceBalance
+      : null;
+  const visibleRecords = items(view).filter(
+    (r) =>
+      (statusFilter === "all" ||
+        String(r.body.status ?? r.body.mode ?? "recorded") === statusFilter) &&
+      `${Object.values(r.body).join(" ")} ${r.id}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  function openForm(kind: string, record: RecordRow | null = null) {
+    setSelected(record);
+    if (record?.kind !== "invoice" || record.id !== invoiceBalance?.invoiceId)
+      setInvoiceBalance(null);
+    setError("");
+    setFormBilling(String(record?.body.billing ?? "retainer"));
+    setFormCurrency(String(record?.body.currency ?? "USDC"));
+    setImportPreview(null);
+    if (kind === "prepare")
+      setPrepareKey(
+        `prepare:${record?.id}:v${record?.version}:${crypto.randomUUID()}`,
+      );
+    setForm(kind);
+  }
   async function action(fn: () => Promise<void>) {
+    if (operationBusy.current) return;
+    operationBusy.current = true;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await fn();
-      if (org) await load(org);
+      if (orgRef.current === org && org) await load(org);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Unable to complete this action.",
       );
     } finally {
+      operationBusy.current = false;
       setBusy(false);
     }
   }
@@ -268,6 +437,47 @@ export default function Console() {
         setNotice("Invoices imported. Duplicate deliveries were skipped.");
         return;
       }
+      if (form === "prepare") {
+        if (!selected) throw new Error("Choose an invoice.");
+        const requestedAmount = atomic(val("requestedAmount"), true);
+        const result = await call(`/api/organizations/${org}/prepare`, {
+          invoiceId: selected.id,
+          key: prepareKey,
+          requestedAmount,
+        });
+        setForm("");
+        setNotice(
+          `Payment ${result.id} is ${result.state}. Exact amount ${money(result.permit.amount)}. No funds were submitted.`,
+        );
+        return;
+      }
+      if (form === "revoke_acceptance") {
+        if (!selected) throw new Error("Choose an acceptance.");
+        await call(
+          `/api/organizations/${org}/acceptances/${selected.id}/revoke`,
+          { expectedVersion: selected.version, reason: val("reason") },
+        );
+        setForm("");
+        setSelected(null);
+        setNotice(
+          "Acceptance revoked. Affected unsubmitted authority was invalidated; submitted operations still need reconciliation.",
+        );
+        return;
+      }
+      if (form === "github") {
+        if (!selected) throw new Error("Choose an invoice.");
+        await call(`/api/organizations/${org}/github-evidence`, {
+          invoiceId: selected.id,
+          owner: val("owner"),
+          repo: val("repo"),
+          number: Number(val("number")),
+        });
+        setForm("");
+        setNotice(
+          "GitHub activity evidence saved. It does not establish customer acceptance.",
+        );
+        return;
+      }
       let body: Record<string, unknown> = {};
       let kind = form;
       if (form === "vendor")
@@ -281,22 +491,38 @@ export default function Console() {
         };
       if (form === "engagement")
         body = {
-          vendorId: val("vendorId"),
+          vendorId: val("vendorId") || selected?.body.vendorId,
           title: val("title"),
           billing: val("billing"),
+          currency: val("currency"),
+          ...(val("policyId") ? { policyId: val("policyId") } : {}),
+          ...(val("billing") === "hourly"
+            ? {
+                hourlyRate: atomic(val("hourlyRate"), true),
+                maximumQuantity: val("maximumQuantity"),
+              }
+            : {}),
+          ...(val("minimumPartial")
+            ? { minimumPartial: atomic(val("minimumPartial"), true) }
+            : {}),
+          acceptanceMaxAgeSeconds: Number(
+            val("acceptanceMaxAgeSeconds") || 86400,
+          ),
           amount: atomic(val("amount")),
           ceiling: atomic(val("ceiling")),
           effectiveFrom: val("effectiveFrom"),
           effectiveTo: val("effectiveTo"),
-          acceptanceRequired: true,
-          acceptors: [wallet],
+          acceptanceRequired: data.get("acceptanceRequired") === "on",
+          acceptors: val("acceptors")
+            .split(/[\s,]+/)
+            .filter(Boolean),
           partialAllowed: data.get("partialAllowed") === "on",
           mode: val("mode"),
           approved: data.get("approved") === "on",
         };
       if (form === "invoice") {
         const engagement = engagements.find(
-          (x) => x.id === val("engagementId"),
+          (x) => x.id === (val("engagementId") || selected?.body.engagementId),
         );
         if (!engagement)
           throw new Error("Choose an approved engagement first.");
@@ -306,11 +532,33 @@ export default function Console() {
           engagementId: engagement.id,
           reference: val("reference"),
           amount: atomic(val("amount")),
-          currency: "USDC",
+          currency: val("currency"),
+          ...(val("quantity") ? { quantity: val("quantity") } : {}),
+          ...(selected?.kind === "invoice"
+            ? {
+                engagementVersion:
+                  data.get("rebind") === "on"
+                    ? engagement.version
+                    : selected.body.engagementVersion,
+              }
+            : {}),
           periodStart: val("periodStart"),
           periodEnd: val("periodEnd"),
           dueDate: val("dueDate"),
-          destination: val("destination") || vendor?.body.destination,
+          ...(selected?.kind === "invoice" &&
+          data.get("rebindDestination") === "on"
+            ? {
+                destinationVersion: Number(
+                  vendor?.body.destinationVersion ?? vendor?.version,
+                ),
+                destinationChainId: Number(vendor?.body.chainId),
+              }
+            : {}),
+          destination:
+            selected?.kind === "invoice" &&
+            data.get("rebindDestination") === "on"
+              ? vendor?.body.destination
+              : val("destination") || vendor?.body.destination,
           description: val("description"),
         };
       }
@@ -331,7 +579,10 @@ export default function Console() {
           invoiceId: selected.id,
           engagementVersion: engagement?.version,
           statement: val("statement"),
-          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          expiresAt: new Date(
+            Date.now() +
+              Number(engagement?.body.acceptanceMaxAgeSeconds ?? 86400) * 1000,
+          ).toISOString(),
         };
       }
       if (form === "case") {
@@ -376,6 +627,7 @@ export default function Console() {
           feeReserve: atomic(val("feeReserve")),
           paused: true,
           coveredOnly: true,
+          expiresAt: new Date(val("expiresAt")).toISOString(),
         };
       }
       if (
@@ -383,9 +635,12 @@ export default function Console() {
         val("sourceId")
       )
         body.sourceId = val("sourceId");
-      if (kind === "engagement" && selected?.kind === "engagement") {
+      if (
+        ["engagement", "invoice", "vendor"].includes(kind) &&
+        selected?.kind === kind
+      ) {
         const response = await fetch(
-          `/api/organizations/${org}/records/engagement/${selected.id}`,
+          `/api/organizations/${org}/records/${kind}/${selected.id}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -402,20 +657,36 @@ export default function Console() {
       );
     });
   }
-  const field = (name: string, label: string, type = "text", value = "") => (
+  const field = (
+    name: string,
+    label: string,
+    type = "text",
+    value = "",
+    required = true,
+  ) => (
     <label key={name}>
       {label}
       <input
         name={name}
         type={type}
-        required
+        required={required}
+        readOnly={
+          (form === "invoice" &&
+            selected?.kind === "invoice" &&
+            ["periodStart", "periodEnd"].includes(name)) ||
+          (form === "vendor" &&
+            selected?.kind === "vendor" &&
+            ["destination", "chainId"].includes(name))
+        }
+        step={type === "number" ? "1" : undefined}
         defaultValue={
-          value ||
-          (form === "engagement" && selected?.kind === "engagement"
-            ? ["amount", "ceiling"].includes(name)
+          selected?.kind === form && selected.body[name] != null
+            ? ["amount", "ceiling", "hourlyRate", "minimumPartial"].includes(
+                name,
+              )
               ? decimal(selected.body[name])
               : String(selected.body[name] ?? "")
-            : "")
+            : value
         }
         maxLength={2000}
       />
@@ -432,10 +703,22 @@ export default function Console() {
       <select
         name={name}
         required
+        disabled={
+          (form === "invoice" &&
+            selected?.kind === "invoice" &&
+            name === "engagementId") ||
+          (form === "engagement" &&
+            selected?.kind === "engagement" &&
+            name === "vendorId")
+        }
+        onChange={(e) => {
+          if (form === "invoice" && name === "engagementId" && !selected) {
+            const agreement = engagements.find((r) => r.id === e.target.value);
+            setFormCurrency(String(agreement?.body.currency ?? "USDC"));
+          }
+        }}
         defaultValue={
-          form === "engagement" && selected?.kind === "engagement"
-            ? String(selected.body[name] ?? "")
-            : ""
+          form === selected?.kind ? String(selected.body[name] ?? "") : ""
         }
       >
         <option value="">Choose {label.toLowerCase()}</option>
@@ -454,7 +737,8 @@ export default function Console() {
     ["engagement", "Agreements", Check],
     ["case", "Exceptions", Clock],
     ["plan", "Payment plan", Clock],
-    ["activity", "Activity", RefreshCw],
+    ["activity", "Payments & receipts", RefreshCw],
+    ["operations", "Operations", Activity],
     ["authority", "Authority", ShieldCheck],
     ["settings", "Team & settings", Settings],
   ] as const;
@@ -477,7 +761,15 @@ export default function Console() {
           id="organization"
           aria-label="Organization"
           value={org}
-          onChange={(e) => setOrg(e.target.value)}
+          onChange={(e) => {
+            setSelected(null);
+            setForm("");
+            setSecret(null);
+            setReview(null);
+            setSnapshotOrg("");
+            setOrg(e.target.value);
+          }}
+          disabled={busy || loading}
         >
           {orgs.map((o) => (
             <option key={o.id} value={o.id}>
@@ -490,9 +782,13 @@ export default function Console() {
             <button
               key={key}
               className={view === key ? "active" : ""}
+              aria-current={view === key ? "page" : undefined}
               onClick={() => {
                 setView(key);
                 setSelected(null);
+                setReview(null);
+                setSearch("");
+                setStatusFilter("all");
               }}
             >
               <Icon size={18} />
@@ -542,7 +838,7 @@ export default function Console() {
               {notice}
             </div>
           )}
-          {loading ? (
+          {loading || workspaceLoading ? (
             <p>Opening your workspace…</p>
           ) : !org ? (
             <section className="live-empty">
@@ -564,6 +860,21 @@ export default function Console() {
                 Create workspace <Plus size={16} />
               </button>
             </section>
+          ) : snapshotOrg !== org ? (
+            <section className="live-panel">
+              <h1>Workspace data is unavailable</h1>
+              <p>
+                Reconnect or refresh to load your private PostgreSQL records. No
+                real records are substituted from the isolated demo.
+              </p>
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() => action(() => load(org))}
+              >
+                Retry workspace load
+              </button>
+            </section>
           ) : (
             <>
               <div className="live-page-title">
@@ -582,6 +893,26 @@ export default function Console() {
                   Refresh
                 </button>
               </div>
+              <div className="console-live-status">
+                <span className="live-chip">{role}</span>
+                <span>Private workspace records</span>
+                <span>
+                  Execution{" "}
+                  {snapshot.executionEnabled
+                    ? "requires verified authority"
+                    : "gated"}
+                </span>
+              </div>
+              {view === "operations" && (
+                <OperationsCenter
+                  key={org}
+                  org={org}
+                  role={role}
+                  onChange={async () => {
+                    await load(org);
+                  }}
+                />
+              )}
               {view === "overview" && (
                 <>
                   <div className="live-stats">
@@ -589,8 +920,12 @@ export default function Console() {
                       <span>Open invoices</span>
                       <strong>
                         {
-                          invoices.filter((i) => i.body.status !== "paid")
-                            .length
+                          invoices.filter(
+                            (i) =>
+                              !["paid", "canceled"].includes(
+                                String(i.body.status),
+                              ),
+                          ).length
                         }
                       </strong>
                       <small>Actual workspace records</small>
@@ -637,7 +972,15 @@ export default function Console() {
                           "See what matches and what needs a decision.",
                         ],
                       ].map(([kind, title, description], i) => (
-                        <button key={kind} onClick={() => setForm(kind)}>
+                        <button
+                          key={kind}
+                          disabled={
+                            !canOperate ||
+                            (kind === "engagement" && !canApprove) ||
+                            (kind === "vendor" && !isOwner)
+                          }
+                          onClick={() => openForm(kind)}
+                        >
                           <span>0{i + 1}</span>
                           <strong>{title}</strong>
                           <small>{description}</small>
@@ -685,7 +1028,7 @@ export default function Console() {
                         className="button secondary"
                         onClick={() => {
                           setImportPreview(null);
-                          setForm("import");
+                          openForm("import");
                         }}
                       >
                         Import CSV
@@ -694,14 +1037,50 @@ export default function Console() {
                     {view !== "case" && (
                       <button
                         className="button primary"
-                        onClick={() => setForm(view)}
+                        disabled={
+                          !canOperate || (view === "engagement" && !canApprove)
+                        }
+                        onClick={() => openForm(view)}
                       >
                         <Plus size={15} />
                         Add {view === "engagement" ? "agreement" : "invoice"}
                       </button>
                     )}
                   </div>
-                  {!items(view).length ? (
+                  <div className="console-filter">
+                    <label>
+                      Search records
+                      <input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Reference, vendor ID or description"
+                      />
+                    </label>
+                    <label>
+                      Status
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                      >
+                        <option value="all">All statuses</option>
+                        {[
+                          ...new Set(
+                            items(view).map((r) =>
+                              String(
+                                r.body.status ?? r.body.mode ?? "recorded",
+                              ),
+                            ),
+                          ),
+                        ].map((status) => (
+                          <option value={status} key={status}>
+                            {humanize(status)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {!visibleRecords.length ? (
                     <div className="live-empty compact">
                       <FileText size={28} />
                       <h3>
@@ -714,11 +1093,15 @@ export default function Console() {
                       </p>
                     </div>
                   ) : (
-                    items(view).map((r) => (
+                    visibleRecords.map((r) => (
                       <button
                         className="live-record-row"
                         key={r.id}
-                        onClick={() => setSelected(r)}
+                        aria-pressed={selected?.id === r.id}
+                        onClick={() => {
+                          setSelected(r);
+                          setReview(null);
+                        }}
                       >
                         <span>
                           <strong>
@@ -734,7 +1117,7 @@ export default function Console() {
                         </span>
                         <span>
                           {r.body.amount
-                            ? money(r.body.amount)
+                            ? money(r.body.amount, r.body.currency)
                             : String(r.body.status ?? "")}
                         </span>
                         <span className="live-chip">
@@ -754,12 +1137,15 @@ export default function Console() {
                     <h2>Confirmed cash. Clear commitments.</h2>
                     <button
                       className="button primary"
-                      disabled={busy || !items("policy").length}
+                      disabled={busy || !canOperate || !items("policy").length}
                       onClick={() =>
                         action(async () => {
+                          const policyId = planPolicy || items("policy")[0]?.id;
+                          if (!policyId)
+                            throw new Error("Create an exact policy first.");
                           const result = await call(
                             `/api/organizations/${org}/plan`,
-                            { policyId: items("policy")[0].id },
+                            { policyId },
                           );
                           setNotice(
                             `Plan saved. Remaining confirmed cash ${money(result.remainingCash)}. Expected revenue is not spendable.`,
@@ -771,25 +1157,76 @@ export default function Console() {
                     </button>
                   </div>
                   <p>
-                    Sync your Safe before planning. Operating reserves,
-                    protected obligations and pending payments reduce available
-                    cash.
+                    Sync the selected policy’s Safe before planning. Operating
+                    reserves, protected obligations and pending payments reduce
+                    available cash. A plan recommends actions and does not
+                    submit payments.
                   </p>
+                  <div className="console-filter">
+                    <label>
+                      Policy and Safe
+                      <select
+                        value={planPolicy || items("policy")[0]?.id || ""}
+                        onChange={(e) => setPlanPolicy(e.target.value)}
+                      >
+                        <option value="">Choose a policy</option>
+                        {items("policy").map((policy) => (
+                          <option key={policy.id} value={policy.id}>
+                            {String(
+                              items("safe").find(
+                                (safe) => safe.id === policy.body.safeId,
+                              )?.body.name ?? policy.id,
+                            )}{" "}
+                            · policy v{policy.version}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                   {items("payment_plan")
+                    .filter(
+                      (plan) =>
+                        plan.body.policyId ===
+                        (planPolicy || items("policy")[0]?.id),
+                    )
                     .slice(0, 1)
                     .map((plan) => (
                       <div key={plan.id}>
-                        <p>
-                          Generated {String(plan.body.generatedAt)} · refresh
-                          after cash or terms change.
+                        <p className="small-muted">
+                          Generated {String(plan.body.generatedAt)} · policy v
+                          {String(plan.body.policyVersion)}. Refresh after cash,
+                          terms or evidence changes.
                         </p>
-                        {(
-                          plan.body.items as {
-                            id: string;
-                            amount: string;
-                            action: string;
-                            reason: string;
-                          }[]
+                        <div className="console-balance">
+                          <div>
+                            <span>Remaining confirmed cash</span>
+                            <strong>{money(plan.body.remainingCash)}</strong>
+                          </div>
+                          <div>
+                            <span>Protected and pending reserve</span>
+                            <strong>{money(plan.body.protectedTotal)}</strong>
+                          </div>
+                          <div>
+                            <span>Reserve shortfall</span>
+                            <strong>{money(plan.body.shortfall)}</strong>
+                          </div>
+                          <div>
+                            <span>Expected inflows</span>
+                            <strong>{money(plan.body.expectedInflows)}</strong>
+                            <span>Never spendable in this plan</span>
+                          </div>
+                        </div>
+                        {(Array.isArray(plan.body.items)
+                          ? (plan.body.items as {
+                              id: string;
+                              amount: string;
+                              action: string;
+                              reason: string;
+                              shortfall: string;
+                              reserved: boolean;
+                              executionAt: string;
+                            }[])
+                          : []
                         ).map((item) => (
                           <div className="live-row" key={item.id}>
                             <span>
@@ -799,20 +1236,62 @@ export default function Console() {
                                     .reference ?? item.id,
                                 )}
                               </strong>
-                              <small>{item.reason}</small>
+                              <small>
+                                {item.reason} ·{" "}
+                                {item.reserved
+                                  ? "Capacity included in this plan"
+                                  : "No capacity included"}{" "}
+                                · earliest{" "}
+                                {new Date(item.executionAt).toLocaleString()}
+                              </small>
+                              <small>Shortfall {money(item.shortfall)}</small>
                             </span>
                             <strong>{money(item.amount)}</strong>
                             <span className="live-chip">{item.action}</span>
+                            <button
+                              className="button secondary"
+                              onClick={() => {
+                                const invoice = invoices.find(
+                                  (i) => i.id === item.id,
+                                );
+                                if (invoice) {
+                                  setSelected(invoice);
+                                  setReview(null);
+                                }
+                              }}
+                            >
+                              Review invoice
+                            </button>
                           </div>
                         ))}
                       </div>
                     ))}
                   {!items("policy").length && (
-                    <p className="small-muted">
-                      Add a Safe and policy preview in Authority before creating
-                      a plan.
-                    </p>
+                    <div className="live-empty compact">
+                      <h3>Add a Safe and policy first</h3>
+                      <p>
+                        Import a Safe for observation, define a paused policy
+                        preview and bind agreements to that policy in Authority.
+                      </p>
+                      <button
+                        className="button secondary"
+                        onClick={() => setView("authority")}
+                      >
+                        Open authority
+                      </button>
+                    </div>
                   )}
+                  {items("policy").length > 0 &&
+                    !items("payment_plan").some(
+                      (plan) =>
+                        plan.body.policyId ===
+                        (planPolicy || items("policy")[0]?.id),
+                    ) && (
+                      <p className="small-muted">
+                        No saved plan for this policy. Sync the Safe and
+                        recompute to use its current finalized balance.
+                      </p>
+                    )}
                 </section>
               )}
               {view === "intake" && (
@@ -821,16 +1300,20 @@ export default function Console() {
                     <h2>Forwarded invoice intake</h2>
                     <button
                       className="button secondary"
-                      disabled={busy}
+                      disabled={busy || !isOwner}
                       onClick={() =>
                         action(async () => {
                           const result = await call(
                             `/api/organizations/${org}/intake-keys`,
                             { label: "Invoice forwarding" },
                           );
-                          await navigator.clipboard.writeText(result.token);
+                          setSecret({
+                            title: "One-time invoice forwarding key",
+                            value: result.token,
+                            description: `Configure your trusted forwarder to POST ${location.origin}${result.endpoint} with this bearer token. ${result.warning}`,
+                          });
                           setNotice(
-                            `Intake key copied once. Configure your trusted email forwarder to POST ${location.origin}${result.endpoint}. It cannot approve payments.`,
+                            "Forwarding key created. Copy and store the one-time value below.",
                           );
                         })
                       }
@@ -854,7 +1337,8 @@ export default function Console() {
                         </p>
                         <button
                           className="button secondary"
-                          onClick={() => setForm("invoice")}
+                          disabled={!canOperate}
+                          onClick={() => openForm("invoice")}
                         >
                           Create reviewed invoice
                         </button>
@@ -869,42 +1353,16 @@ export default function Console() {
                 </section>
               )}
               {view === "activity" && (
-                <section className="live-panel">
-                  <div className="panel-heading">
-                    <h2>Payment activity</h2>
-                    <a
-                      href={`/api/organizations/${org}/export?format=csv`}
-                      className="button secondary"
-                    >
-                      <Download size={15} />
-                      Export CSV
-                    </a>
-                  </div>
-                  {snapshot.payments.length ? (
-                    snapshot.payments.map((p) => (
-                      <div className="live-row" key={p.id}>
-                        <span>{p.id.slice(0, 8)}</span>
-                        <strong>{money(p.amount)}</strong>
-                        <span>{p.state.replaceAll("_", " ")}</span>
-                        <a
-                          className="text-link"
-                          href={`/api/organizations/${org}/payments/${p.id}/receipt`}
-                        >
-                          Download receipt
-                        </a>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="live-empty compact">
-                      <h3>No payments submitted</h3>
-                      <p>
-                        Preparation, submission, destination receipt, and
-                        accounting are tracked separately. Nothing here is
-                        inferred from demo activity.
-                      </p>
-                    </div>
-                  )}
-                </section>
+                <PaymentActivity
+                  key={org}
+                  org={org}
+                  payments={snapshot.payments}
+                  invoices={invoices}
+                  role={role}
+                  onChange={async () => {
+                    await load(org);
+                  }}
+                />
               )}
               {view === "authority" && (
                 <>
@@ -913,71 +1371,160 @@ export default function Console() {
                       <h2>Connected Safes</h2>
                       <button
                         className="button primary"
-                        onClick={() => setForm("safe")}
+                        disabled={!isOwner}
+                        onClick={() => openForm("safe")}
                       >
                         Import read-only <Plus size={15} />
                       </button>
                     </div>
-                    {items("safe").map((s) => (
-                      <div className="live-row" key={s.id}>
-                        <span>
-                          <strong>{String(s.body.name)}</strong>
-                          <small>{String(s.body.address)}</small>
-                        </span>
-                        <span className="live-chip">Observe</span>
-                        <button
-                          className="button secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            action(async () => {
-                              const result = await call(
-                                `/api/organizations/${org}/safe-sync`,
-                                { safeId: s.id },
-                              );
-                              setNotice(
-                                `Observed finalized block ${result.finalizedBlock}. History range starts at ${result.historyFrom}; complete reconciliation is still required before automation.`,
-                              );
-                            })
-                          }
-                        >
-                          Sync read-only
-                        </button>
-                      </div>
-                    ))}
                     <p>
-                      Connecting a Safe does not change its owners, threshold,
-                      or modules. Countersign cannot sign for its owners.
+                      Connecting a Safe records observation settings. Safe
+                      owners retain their existing threshold and recovery
+                      authority.
                     </p>
+                    {items("safe").length ? (
+                      items("safe").map((safe) => {
+                        const observation = items("chain_observation").find(
+                          (record) => record.body.safeId === safe.id,
+                        );
+                        const reconciliation = items(
+                          "history_reconciliation",
+                        ).find(
+                          (record) =>
+                            record.body.observationId === observation?.id,
+                        );
+                        return (
+                          <div key={safe.id}>
+                            <div className="live-row">
+                              <span>
+                                <strong>{String(safe.body.name)}</strong>
+                                <small>
+                                  {String(safe.body.address)} · chain{" "}
+                                  {String(safe.body.chainId)}
+                                </small>
+                              </span>
+                              <span className="live-chip">Observe</span>
+                              <button
+                                className="button secondary"
+                                disabled={busy || !canOperate}
+                                onClick={() =>
+                                  action(async () => {
+                                    const result = await call(
+                                      `/api/organizations/${org}/safe-sync`,
+                                      { safeId: safe.id },
+                                    );
+                                    setNotice(
+                                      `Observed finalized block ${result.finalizedBlock}. Bounded history starts at ${result.historyFrom}. Reconcile original statements before preparation.`,
+                                    );
+                                  })
+                                }
+                              >
+                                Sync read-only
+                              </button>
+                            </div>
+                            {observation ? (
+                              <HistoryReconciliation
+                                key={observation.id}
+                                org={org}
+                                safe={safe}
+                                observation={observation}
+                                documents={documents}
+                                invoices={invoices}
+                                payments={snapshot.payments}
+                                role={role}
+                                onChange={async () => {
+                                  await load(org);
+                                }}
+                              />
+                            ) : (
+                              <p className="small-muted">
+                                Not synchronized. Configure the verified chain
+                                integration and sync to observe finalized
+                                balances and bounded transfer history.
+                              </p>
+                            )}
+                            {reconciliation && (
+                              <p className="small-muted">
+                                Owner reconciliation recorded{" "}
+                                {new Date(
+                                  String(reconciliation.body.attestedAt),
+                                ).toLocaleString()}
+                                . Coverage depends on its supporting originals
+                                and exact transfer classifications.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="small-muted">
+                        No Safe imported. Start with read-only observation of
+                        your existing treasury.
+                      </p>
+                    )}
                   </section>
                   <section className="live-panel">
-                    <h2>Permission preview</h2>
+                    <div className="panel-heading">
+                      <h2>Permission previews</h2>
+                      <button
+                        className="button secondary"
+                        disabled={!isOwner || !items("safe").length}
+                        onClick={() => openForm("policy")}
+                      >
+                        Create paused policy
+                      </button>
+                    </div>
                     <p>
-                      Define the limits you intend to delegate before installing
-                      anything. All policies start paused.
+                      Define per-payment limits, cash reserves and expiry before
+                      installing authority. New policies start paused. Bind each
+                      agreement to the exact policy and Safe.
                     </p>
-                    <button
-                      className="button secondary"
-                      onClick={() => setForm("policy")}
-                    >
-                      Create a policy preview
-                    </button>
-                    {items("policy").map((p) => (
-                      <div key={p.id} className="live-row">
-                        <span>Per payment {money(p.body.perPayment)}</span>
-                        <span>24-hour limit {money(p.body.rolling24h)}</span>
-                        <span>Paused</span>
-                      </div>
+                    {items("policy").map((policy) => (
+                      <button
+                        key={policy.id}
+                        className="live-record-row"
+                        onClick={() => setSelected(policy)}
+                      >
+                        <span>
+                          <strong>
+                            {String(
+                              items("safe").find(
+                                (safe) => safe.id === policy.body.safeId,
+                              )?.body.name ?? "Safe policy",
+                            )}{" "}
+                            · v{policy.version}
+                          </strong>
+                          <small>
+                            Per payment {money(policy.body.perPayment)} ·
+                            24-hour limit {money(policy.body.rolling24h)}
+                          </small>
+                          <small>
+                            Expires{" "}
+                            {policy.body.expiresAt
+                              ? new Date(
+                                  String(policy.body.expiresAt),
+                                ).toLocaleString()
+                              : "not set"}
+                          </small>
+                        </span>
+                        <span className="live-chip">
+                          {policy.body.paused
+                            ? "Paused"
+                            : "Active policy record"}
+                        </span>
+                      </button>
                     ))}
                   </section>
                   <section className="live-panel">
                     <h2>Reserved payment protection</h2>
                     <p>
-                      Not activated. No funded reserve, accepted terms, or
-                      appointed independent reviewer has been verified for this
-                      deployment.
+                      Protection is available only when its exact terms, funded
+                      reserve allocation and independent reviewer are verified.
+                      Inspect deployment evidence and current allocations before
+                      treating any payment as covered.
                     </p>
                     <Link className="text-link" href="/docs/protection">
-                      Read the activation requirements →
+                      Read activation requirements →
                     </Link>
                   </section>
                 </>
@@ -989,14 +1536,28 @@ export default function Console() {
                       <h2>Vendors</h2>
                       <button
                         className="button primary"
-                        onClick={() => setForm("vendor")}
+                        disabled={!isOwner}
+                        onClick={() => openForm("vendor")}
                       >
                         Add vendor
                       </button>
                     </div>
                     {vendors.map((v) => (
                       <div key={v.id} className="live-row">
-                        <strong>{String(v.body.name)}</strong>
+                        <span>
+                          <strong>{String(v.body.name)}</strong>
+                          <small>
+                            {String(v.body.destination)} · chain{" "}
+                            {String(v.body.chainId)} · v{v.version}
+                          </small>
+                        </span>
+                        <button
+                          className="button secondary"
+                          disabled={!isOwner}
+                          onClick={() => openForm("vendor", v)}
+                        >
+                          Review vendor record
+                        </button>
                         <span>
                           {v.body.verified
                             ? "Identity confirmed"
@@ -1004,9 +1565,9 @@ export default function Console() {
                         </span>
                         <button
                           className="button secondary"
+                          disabled={!isOwner}
                           onClick={() => {
-                            setSelected(v);
-                            setForm("destination");
+                            openForm("destination", v);
                           }}
                         >
                           Propose destination change
@@ -1014,66 +1575,71 @@ export default function Console() {
                       </div>
                     ))}
                   </section>
-                  <section className="live-panel">
-                    <h2>Destination change review</h2>
-                    {changes
-                      .filter((c) => c.status === "pending")
-                      .map((c) => (
-                        <div className="live-row" key={c.id}>
-                          <span>
-                            <strong>{c.destination}</strong>
-                            <small>{c.reason}</small>
-                          </span>
-                          <button
-                            disabled={busy}
-                            className="button secondary"
-                            onClick={() =>
-                              action(async () => {
-                                await call(
-                                  `/api/organizations/${org}/destination-changes/confirm`,
-                                  { changeId: c.id },
-                                );
-                                setChanges(
+                  {canApprove && (
+                    <section className="live-panel">
+                      <h2>Destination change review</h2>
+                      {changes
+                        .filter((c) => c.status === "pending")
+                        .map((c) => (
+                          <div className="live-row" key={c.id}>
+                            <span>
+                              <strong>{c.destination}</strong>
+                              <small>{c.reason}</small>
+                            </span>
+                            <button
+                              disabled={busy}
+                              className="button secondary"
+                              onClick={() =>
+                                action(async () => {
                                   await call(
-                                    `/api/organizations/${org}/destination-changes`,
-                                  ),
-                                );
-                                setNotice(
-                                  "Destination change confirmed; earlier unsubmitted authority was invalidated.",
-                                );
-                              })
-                            }
-                          >
-                            Confirm reviewed change
-                          </button>
-                        </div>
-                      ))}
-                    <p className="small-muted">
-                      High-risk changes require a sign-in from the last five
-                      minutes and an independent reviewer. Solo exceptions need
-                      a separate new sign-in after the proposal.
-                    </p>
-                    <Link className="text-link" href="/login">
-                      Reauthenticate →
-                    </Link>
-                  </section>
-                  <section className="live-panel">
-                    <h2>Workspace access</h2>
-                    <p>
-                      Owners manage terms and destinations. Approvers attest
-                      acceptance. Operators import and review. Viewers can
-                      inspect records.
-                    </p>
-                    <button
-                      className="button secondary"
-                      onClick={() => setForm("member")}
-                    >
-                      <Users size={15} />
-                      Add team member
-                    </button>
-                  </section>
+                                    `/api/organizations/${org}/destination-changes/confirm`,
+                                    { changeId: c.id },
+                                  );
+                                  setChanges(
+                                    await call(
+                                      `/api/organizations/${org}/destination-changes`,
+                                    ),
+                                  );
+                                  setNotice(
+                                    "Destination change confirmed; earlier unsubmitted authority was invalidated.",
+                                  );
+                                })
+                              }
+                            >
+                              Confirm reviewed change
+                            </button>
+                          </div>
+                        ))}
+                      <p className="small-muted">
+                        High-risk changes require a sign-in from the last five
+                        minutes and an independent reviewer. Solo exceptions
+                        need a separate new sign-in after the proposal.
+                      </p>
+                      <Link className="text-link" href="/login">
+                        Reauthenticate →
+                      </Link>
+                    </section>
+                  )}
+                  <WorkspaceAccess
+                    key={org}
+                    org={org}
+                    role={role}
+                    onAddMember={() => openForm("member")}
+                  />
                   <section className="live-panel">
                     <h2>Private documents</h2>
+                    <label>
+                      Extract fields from
+                      <select
+                        value={extractionKind}
+                        onChange={(event) =>
+                          setExtractionKind(event.target.value)
+                        }
+                      >
+                        <option value="agreement">Agreement</option>
+                        <option value="invoice">Invoice</option>
+                      </select>
+                    </label>
                     <p>
                       Encrypted at rest; access remains restricted to this
                       workspace. PDF, PNG, JPEG, CSV or text, up to 4 MB.
@@ -1083,9 +1649,15 @@ export default function Console() {
                       <input
                         className="sr-only"
                         type="file"
+                        disabled={!canOperate || busy}
                         accept="application/pdf,image/png,image/jpeg,text/csv,text/plain"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
+                          if (file && file.size > 4 * 1024 * 1024) {
+                            setError("Upload an original smaller than 4 MB.");
+                            e.target.value = "";
+                            return;
+                          }
                           if (file)
                             action(async () => {
                               const data = new FormData();
@@ -1112,14 +1684,14 @@ export default function Console() {
                         </a>
                         <button
                           className="button secondary"
-                          disabled={busy}
+                          disabled={busy || !canOperate}
                           onClick={() =>
                             action(async () => {
                               const result = await call(
                                 `/api/organizations/${org}/extract`,
-                                { documentId: doc.id },
+                                { documentId: doc.id, kind: extractionKind },
                               );
-                              setExtraction(result.suggestion);
+                              setExtraction(result);
                               setNotice(
                                 "Unapproved suggestions only. Review the original before entering or activating terms.",
                               );
@@ -1133,7 +1705,12 @@ export default function Console() {
                     {extraction && (
                       <div role="status">
                         <h3>Review against the original</h3>
-                        {Object.entries(extraction).map(([key, value]) => (
+                        {Object.entries(
+                          (extraction.suggestion ?? extraction) as Record<
+                            string,
+                            unknown
+                          >,
+                        ).map(([key, value]) => (
                           <p key={key}>
                             <strong>{key.replace(/([A-Z])/g, " $1")}: </strong>
                             {Array.isArray(value)
@@ -1141,6 +1718,14 @@ export default function Console() {
                               : String(value ?? "Not found")}
                           </p>
                         ))}
+                        {extraction.provenance != null && (
+                          <details>
+                            <summary>Source and extraction provenance</summary>
+                            <pre>
+                              {JSON.stringify(extraction.provenance, null, 2)}
+                            </pre>
+                          </details>
+                        )}
                       </div>
                     )}
                   </section>
@@ -1148,44 +1733,68 @@ export default function Console() {
               )}
             </>
           )}
-          {selected && !form && (
-            <section className="live-panel detail-panel">
-              <div className="panel-heading">
-                <h2>
-                  {String(selected.body.reference ?? selected.body.title)}
-                </h2>
+          {secret && (
+            <section
+              className="console-secret"
+              aria-label="One-time private access"
+            >
+              <h3>{secret.title}</h3>
+              <p>{secret.description}</p>
+              <label>
+                <span className="sr-only">Private access value</span>
+                <input
+                  value={secret.value}
+                  readOnly
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              </label>
+              <div className="action-row">
                 <button
                   className="button secondary"
-                  onClick={() => setSelected(null)}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(secret.value);
+                      setNotice(
+                        "Copied. Store this private access value securely.",
+                      );
+                    } catch {
+                      setError(
+                        "Clipboard is unavailable. Select and copy the value above.",
+                      );
+                    }
+                  }}
                 >
-                  Close
+                  Copy private value
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => setSecret(null)}
+                >
+                  Dismiss private value
                 </button>
               </div>
-              {Object.entries(selected.body)
-                .filter(
-                  ([k]) =>
-                    !["vendorId", "engagementId", "acceptors"].includes(k),
-                )
-                .map(([key, value]) => (
-                  <div className="live-row" key={key}>
-                    <span>{key.replace(/([A-Z])/g, " $1")}</span>
-                    <strong>
-                      {typeof value === "boolean"
-                        ? value
-                          ? "Yes"
-                          : "No"
-                        : key === "amount" ||
-                            key === "ceiling" ||
-                            key === "paidAmount"
-                          ? money(value)
-                          : String(value)}
-                    </strong>
-                  </div>
-                ))}
+            </section>
+          )}
+          {selected && !form && snapshotOrg === org && (
+            <RecordInspector
+              record={selected}
+              records={snapshot.records}
+              documents={documents}
+              payments={snapshot.payments}
+              org={org}
+              review={review?.invoiceId === selected.id ? review.result : null}
+              onClose={() => setSelected(null)}
+              onSelect={(record) => {
+                setSelected(record);
+                setReview(null);
+              }}
+              canRevoke={canApprove}
+              onRevoke={(record) => openForm("revoke_acceptance", record)}
+            >
               {selected.kind === "invoice" && (
                 <div className="action-row">
                   <button
-                    disabled={busy}
+                    disabled={busy || !canOperate}
                     className="button primary"
                     onClick={() =>
                       action(async () => {
@@ -1193,6 +1802,7 @@ export default function Console() {
                           `/api/organizations/${org}/review`,
                           { invoiceId: selected.id },
                         );
+                        setReview({ invoiceId: selected.id, result: data });
                         setNotice(
                           `${data.decision.action}: ${data.decision.reason}`,
                         );
@@ -1202,7 +1812,7 @@ export default function Console() {
                     Run verification
                   </button>
                   <button
-                    disabled={busy}
+                    disabled={busy || !canOperate}
                     className="button secondary"
                     onClick={() =>
                       action(async () => {
@@ -1219,34 +1829,35 @@ export default function Console() {
                     Ask evidence assistant
                   </button>
                   <button
-                    disabled={busy}
-                    className="button secondary"
-                    onClick={() =>
-                      action(async () => {
-                        const result = await call(
-                          `/api/organizations/${org}/prepare`,
-                          {
-                            invoiceId: selected.id,
-                            key: `prepare:${selected.id}:v${selected.version}`,
-                          },
-                        );
-                        setNotice(
-                          `Payment ${result.id} is ${result.state}. No funds were submitted.`,
-                        );
-                      })
+                    disabled={
+                      busy ||
+                      !canOperate ||
+                      !exactBalance ||
+                      exactBalance.overallocated
                     }
+                    className="button secondary"
+                    onClick={() => openForm("prepare", selected)}
                   >
-                    Prepare payment
+                    Prepare exact amount
+                  </button>
+                  <button
+                    disabled={busy || !canApprove}
+                    className="button secondary"
+                    onClick={() => openForm("invoice", selected)}
+                  >
+                    Create invoice correction
                   </button>
                   <button
                     className="button secondary"
-                    onClick={() => setForm("acceptance")}
+                    disabled={!canApprove}
+                    onClick={() => openForm("acceptance", selected)}
                   >
                     Confirm acceptance
                   </button>
                   <button
                     className="button secondary"
-                    onClick={() => setForm("override")}
+                    disabled={!isOwner}
+                    onClick={() => openForm("override", selected)}
                   >
                     {selected.body.manualHold
                       ? "Clear manual hold"
@@ -1254,22 +1865,32 @@ export default function Console() {
                   </button>
                   <button
                     className="button secondary"
-                    onClick={() => setForm("case")}
+                    disabled={!canOperate}
+                    onClick={() => openForm("case", selected)}
                   >
                     Open a case
                   </button>
                   <button
                     className="button secondary"
-                    onClick={() => setForm("evidence")}
+                    disabled={!canOperate}
+                    onClick={() => openForm("evidence", selected)}
                   >
                     Add evidence
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={!canOperate}
+                    onClick={() => openForm("github", selected)}
+                  >
+                    Link GitHub evidence
                   </button>
                 </div>
               )}
               {selected.kind === "engagement" && (
                 <button
                   className="button secondary"
-                  onClick={() => setForm("engagement")}
+                  disabled={!canApprove}
+                  onClick={() => openForm("engagement", selected)}
                 >
                   Create reviewed amendment
                 </button>
@@ -1277,7 +1898,8 @@ export default function Console() {
               {selected.kind === "case" && (
                 <button
                   className="button secondary"
-                  onClick={() => setForm("resolve")}
+                  disabled={!canOperate}
+                  onClick={() => openForm("resolve", selected)}
                 >
                   Record case resolution
                 </button>
@@ -1285,17 +1907,21 @@ export default function Console() {
               {selected.kind === "case" && (
                 <button
                   className="button secondary"
+                  disabled={busy || !canApprove}
                   onClick={() =>
                     action(async () => {
                       const result = await call(
                         `/api/organizations/${org}/vendor-links`,
                         { caseId: selected.id },
                       );
-                      await navigator.clipboard.writeText(
-                        `${location.origin}${result.path}`,
-                      );
+                      setSecret({
+                        title: "Private vendor correction link",
+                        value: `${location.origin}${result.path}`,
+                        description:
+                          "Shown in this session only. Expires in 7 days. Share with the intended vendor; it can submit correction proposals for this case and cannot change terms or destinations.",
+                      });
                       setNotice(
-                        "Private vendor link copied. Expires in 7 days. Share only with the intended vendor.",
+                        "Private correction link created. Copy the value below.",
                       );
                     })
                   }
@@ -1303,14 +1929,20 @@ export default function Console() {
                   Create private correction link
                 </button>
               )}
-            </section>
+            </RecordInspector>
           )}
         </div>
       </main>
       {form && (
         <dialog
           ref={dialogRef}
-          onCancel={() => setForm("")}
+          onCancel={(e) => {
+            if (busy) {
+              e.preventDefault();
+              return;
+            }
+            setForm("");
+          }}
           aria-labelledby="form-title"
           className="live-modal"
         >
@@ -1320,11 +1952,20 @@ export default function Console() {
                 ? "Create workspace"
                 : form === "acceptance"
                   ? "Confirm delivery acceptance"
-                  : `Add ${form === "engagement" ? "agreement" : form}`}
+                  : form === "revoke_acceptance"
+                    ? "Revoke delivery acceptance"
+                    : form === "prepare"
+                      ? "Prepare an exact payment proposal"
+                      : form === "github"
+                        ? "Link GitHub evidence"
+                        : selected?.kind === form
+                          ? `Review ${form === "engagement" ? "agreement amendment" : "invoice correction"}`
+                          : `Add ${form === "engagement" ? "agreement" : form}`}
             </h2>
             <button
               aria-label="Close form"
               className="button secondary"
+              disabled={busy}
               onClick={() => setForm("")}
             >
               ×
@@ -1332,6 +1973,24 @@ export default function Console() {
           </div>
           <form onSubmit={submit} className="live-form">
             {form === "organization" && field("name", "Workspace name")}
+            {form === "revoke_acceptance" && (
+              <>
+                <p>
+                  Withdraw this acceptance with a recorded reason. This
+                  invalidates affected unsubmitted payment authority; any
+                  broadcast still requires independent reconciliation.
+                </p>
+                <label>
+                  Withdrawal reason and evidence
+                  <textarea
+                    name="reason"
+                    required
+                    minLength={10}
+                    maxLength={2000}
+                  />
+                </label>
+              </>
+            )}
             {form === "import" && (
               <>
                 <p>
@@ -1367,76 +2026,334 @@ export default function Console() {
                 {field("name", "Vendor name")}
                 <label>
                   Internal reference
-                  <input name="reference" />
+                  <input
+                    name="reference"
+                    defaultValue={String(
+                      selected?.kind === "vendor"
+                        ? (selected.body.reference ?? "")
+                        : "",
+                    )}
+                  />
                 </label>
                 {field("destination", "Verified settlement address")}
                 {field("chainId", "Chain ID", "number", "5042002")}
                 <label className="check-label">
-                  <input name="verified" type="checkbox" />I verified this
-                  vendor and destination through an established contact.
+                  <input
+                    name="verified"
+                    type="checkbox"
+                    defaultChecked={Boolean(
+                      selected?.kind === "vendor" && selected.body.verified,
+                    )}
+                  />
+                  I verified this vendor and destination through an established
+                  contact.
                 </label>
                 <label>
                   Verification note
-                  <textarea name="verificationNote" />
+                  <textarea
+                    name="verificationNote"
+                    defaultValue={String(
+                      selected?.kind === "vendor"
+                        ? (selected.body.verificationNote ?? "")
+                        : "",
+                    )}
+                  />
                 </label>
               </>
             )}
             {form === "engagement" && (
               <>
+                {selected?.kind === "engagement" && (
+                  <p className="console-version-note">
+                    Amending version {selected.version}. Re-review these exact
+                    terms; affected acceptance and unsubmitted payment authority
+                    will be invalidated.
+                  </p>
+                )}
+                {selected?.kind === "engagement" && (
+                  <input
+                    type="hidden"
+                    name="vendorId"
+                    value={String(selected.body.vendorId)}
+                  />
+                )}
                 {choose("vendorId", "Vendor", vendors, "name")}
                 {field("title", "Agreement title")}
                 <label>
                   Billing model
-                  <select name="billing">
+                  <select
+                    name="billing"
+                    value={formBilling}
+                    onChange={(e) => setFormBilling(e.target.value)}
+                  >
                     <option value="retainer">Recurring retainer</option>
                     <option value="milestone">Milestone</option>
                     <option value="hourly">
-                      Hourly (requires rate evidence)
+                      Hourly — exact rate × quantity
                     </option>
                   </select>
                 </label>
-                {field("amount", "Amount per obligation (USDC)")}
-                {field("ceiling", "Total commitment ceiling (USDC)")}
+                <label>
+                  Agreement currency
+                  <select
+                    name="currency"
+                    value={formCurrency}
+                    onChange={(e) => setFormCurrency(e.target.value)}
+                  >
+                    <option value="USDC">USDC</option>
+                    <option value="USD">
+                      USD — requires explicit currency settlement agreement
+                    </option>
+                  </select>
+                </label>
+                {field(
+                  "amount",
+                  formBilling === "hourly"
+                    ? `Obligation amount / ceiling (${formCurrency})`
+                    : `Amount per obligation (${formCurrency})`,
+                )}
+                {formBilling === "hourly" && (
+                  <>
+                    {field(
+                      "hourlyRate",
+                      `Rate per whole hour (${formCurrency})`,
+                    )}
+                    {field(
+                      "maximumQuantity",
+                      "Maximum hours per obligation (up to 6 decimal places)",
+                    )}
+                    <p className="small-muted">
+                      Hourly invoices include exact hours. The rate × hours must
+                      fit the token’s six-decimal precision; fractions are never
+                      silently rounded.
+                    </p>
+                  </>
+                )}
+                {field("ceiling", `Total commitment ceiling (${formCurrency})`)}
                 {field("effectiveFrom", "Effective from", "date", today())}
                 {field("effectiveTo", "Effective through", "date")}
                 <label>
+                  Payment policy / Safe
+                  <select
+                    name="policyId"
+                    defaultValue={String(selected?.body.policyId ?? "")}
+                  >
+                    <option value="">
+                      Unbound — choose before preparation
+                    </option>
+                    {items("policy").map((policy) => (
+                      <option key={policy.id} value={policy.id}>
+                        {String(
+                          items("safe").find(
+                            (safe) => safe.id === policy.body.safeId,
+                          )?.body.name ?? policy.id,
+                        )}{" "}
+                        · policy v{policy.version}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   Mode
-                  <select name="mode">
+                  <select
+                    name="mode"
+                    defaultValue={String(selected?.body.mode ?? "observe")}
+                  >
                     <option value="observe">Observe — analysis only</option>
                     <option value="prepare">Prepare — human approval</option>
+                    {selected?.body.mode === "delegate" && (
+                      <option value="delegate">
+                        Delegate — verified authority required
+                      </option>
+                    )}
                   </select>
                 </label>
                 <label className="check-label">
-                  <input name="partialAllowed" type="checkbox" />
+                  <input
+                    name="partialAllowed"
+                    type="checkbox"
+                    defaultChecked={Boolean(selected?.body.partialAllowed)}
+                  />
                   Agreement permits partial payment.
                 </label>
+                {field(
+                  "minimumPartial",
+                  `Minimum partial payment (${formCurrency}; optional)`,
+                  "text",
+                  "",
+                  false,
+                )}
+                <label className="check-label">
+                  <input
+                    name="acceptanceRequired"
+                    type="checkbox"
+                    defaultChecked={
+                      selected?.kind === "engagement"
+                        ? Boolean(selected.body.acceptanceRequired)
+                        : true
+                    }
+                  />
+                  Require customer delivery acceptance.
+                </label>
+                {field(
+                  "acceptors",
+                  "Authorized customer acceptor wallets (comma or space separated)",
+                  "text",
+                  wallet,
+                )}
+                {field(
+                  "acceptanceMaxAgeSeconds",
+                  "Maximum acceptance age (seconds)",
+                  "number",
+                  "86400",
+                )}
                 <label className="check-label">
                   <input name="approved" type="checkbox" />I am authorized to
-                  activate these exact terms.
+                  activate these exact reviewed terms.
                 </label>
                 <p className="small-muted">
-                  Your wallet is recorded as the customer acceptor. New terms
-                  are versioned; no signature moves funds.
+                  Approval is recorded to your authenticated wallet. Terms are
+                  versioned; this form does not sign a transaction. USD is
+                  recorded as USD and is not silently treated as USDC.
                 </p>
               </>
             )}
             {form === "invoice" && (
               <>
+                {selected?.kind === "invoice" && (
+                  <>
+                    <p className="console-version-note">
+                      Correction of version {selected.version}. The original
+                      agreement, obligation and period stay bound. Allocated
+                      invoices cannot change payable terms until their
+                      operations are reconciled.
+                    </p>
+                    <input
+                      type="hidden"
+                      name="engagementId"
+                      value={String(selected.body.engagementId)}
+                    />
+                  </>
+                )}
                 {choose("engagementId", "Agreement", engagements, "title")}
+                {selected?.kind === "invoice" && (
+                  <label className="check-label">
+                    <input name="rebind" type="checkbox" />I reviewed the
+                    current agreement amendment and explicitly bind this
+                    corrected invoice to its current version.
+                  </label>
+                )}
                 {field("reference", "Invoice number")}
-                {field("amount", "Invoice amount (USDC)")}
+                <label>
+                  Invoice currency
+                  <select
+                    name="currency"
+                    value={formCurrency}
+                    onChange={(e) => setFormCurrency(e.target.value)}
+                  >
+                    <option value="USDC">USDC</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </label>
+                {field("amount", `Invoice amount (${formCurrency})`)}
+                {field(
+                  "quantity",
+                  "Hours / quantity (required for hourly invoices)",
+                  "text",
+                  "",
+                  false,
+                )}
                 {field("periodStart", "Billing period starts", "date")}
                 {field("periodEnd", "Billing period ends", "date")}
                 {field("dueDate", "Due date", "date")}
+                {selected?.kind === "invoice" && (
+                  <label className="check-label">
+                    <input name="rebindDestination" type="checkbox" />I
+                    independently reviewed the current registered vendor
+                    destination:{" "}
+                    {String(
+                      vendors.find((v) => v.id === selected.body.vendorId)?.body
+                        .destination ?? "Unavailable",
+                    )}{" "}
+                    · chain{" "}
+                    {String(
+                      vendors.find((v) => v.id === selected.body.vendorId)?.body
+                        .chainId ?? "Unavailable",
+                    )}
+                    . Bind this corrected invoice to that exact destination and
+                    version.
+                  </label>
+                )}
                 <label>
                   Destination on invoice (blank uses verified vendor
                   destination)
-                  <input name="destination" />
+                  <input
+                    name="destination"
+                    defaultValue={String(
+                      selected?.kind === "invoice"
+                        ? (selected.body.destination ?? "")
+                        : "",
+                    )}
+                  />
                 </label>
                 <label>
                   Description
-                  <textarea name="description" required />
+                  <textarea
+                    name="description"
+                    required
+                    defaultValue={String(
+                      selected?.kind === "invoice"
+                        ? (selected.body.description ?? "")
+                        : "",
+                    )}
+                  />
                 </label>
+              </>
+            )}
+            {form === "prepare" && selected && (
+              <>
+                <p>
+                  Creates a version-bound proposal. The server rechecks
+                  agreement terms, delivery acceptance, allocations, current
+                  policy and reconciled history. No funds are submitted.
+                </p>
+                <p>
+                  Unallocated remainder:{" "}
+                  <strong>
+                    {money(
+                      exactBalance?.data.remaining,
+                      selected.body.currency,
+                    )}
+                  </strong>
+                  . Existing unknown operations keep their reserved capacity.
+                </p>
+                {field(
+                  "requestedAmount",
+                  "Exact proposal amount (USDC)",
+                  "text",
+                  decimal(exactBalance?.data.remaining),
+                )}
+                <p className="small-muted">
+                  A smaller amount requires terms that permit partial payments
+                  and must meet any minimum. Keep this form open after a timeout
+                  to retry the original operation.
+                </p>
+                <details>
+                  <summary>Operation identity</summary>
+                  <code>{prepareKey}</code>
+                </details>
+              </>
+            )}
+            {form === "github" && (
+              <>
+                {field("owner", "GitHub repository owner")}
+                {field("repo", "Repository name")}
+                {field("number", "Pull request number", "number")}
+                <p>
+                  Fetches current source evidence. A merged pull request records
+                  activity and does not authorize customer acceptance or
+                  payment.
+                </p>
               </>
             )}
             {form === "safe" && (
@@ -1454,7 +2371,9 @@ export default function Console() {
               <>
                 <p>
                   Only the agreement’s authorized customer acceptor may confirm
-                  delivery. This attestation expires after 24 hours.
+                  delivery. Expiry follows the agreement’s acceptance-age limit.
+                  Confirm the exact current version and the deliverable
+                  described below.
                 </p>
                 <label>
                   What was accepted and under which condition?
@@ -1555,6 +2474,12 @@ export default function Console() {
                 {field("cashFloor", "Minimum operating cash (USDC)")}
                 {field("protectedAmount", "Protected obligations (USDC)")}
                 {field("feeReserve", "Fee reserve (USDC)")}
+                {field(
+                  "expiresAt",
+                  "Policy expiry",
+                  "datetime-local",
+                  policyExpiry,
+                )}
                 <p>
                   Preview only. Installation and independent recovery must be
                   verified before delegation.
@@ -1598,7 +2523,9 @@ export default function Console() {
                   ? importPreview
                     ? "Import validated invoices"
                     : "Validate import"
-                  : "Save to workspace"}
+                  : form === "prepare"
+                    ? "Prepare reviewed amount"
+                    : "Save to workspace"}
             </button>
           </form>
         </dialog>

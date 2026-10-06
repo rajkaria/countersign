@@ -54,7 +54,7 @@ POST /api/organizations/{org}/github-evidence accepts invoiceId, owner, repo and
 
 POST /api/organizations/{org}/safe-sync accepts safeId. It verifies the configured RPC chain and reads finalized Safe metadata, balance and bounded transfer history. A bounded scan is explicitly not complete payment history.
 
-POST /api/organizations/{org}/extract accepts documentId and requires a configured model provider. It returns unapproved source-linked suggestions. POST /api/organizations/{org}/agent-review accepts invoiceId and constrains any proposal to deterministic allowed actions. Both operate only on authenticated tenant evidence and preserve provider/model/prompt provenance.
+POST /api/organizations/{org}/extract accepts documentId and optional kind (`agreement`, the default, or `invoice`) and requires a configured model provider. It returns unapproved source-linked suggestions plus complete-source hash, encrypted commitment and provider response provenance; it creates no invoice, approval or destination authorization. PDFs and images use complete inline binary input. Text/CSV must be valid UTF-8 and at most 100,000 bytes; longer text is rejected instead of truncated. Incomplete, refused or invalid structured responses fail explicitly. POST /api/organizations/{org}/agent-review accepts invoiceId and constrains any proposal to deterministic allowed actions. Both operate only on authenticated tenant evidence and preserve provider/model/prompt provenance.
 
 ## Controlled changes and authorization
 
@@ -120,9 +120,9 @@ This is illustrative vendor data, not a verified settlement destination. Send it
 
 ## Preparation and idempotency
 
-Preparation accepts `{ invoiceId, key }`, where the stable key is 8–160 characters. Authorization accepts `{ paymentId }` for the already stored payment. Amount, destination, versions and permit fields are derived by the server; neither endpoint accepts a model-generated arbitrary transaction.
+Preparation accepts `{ invoiceId, key, requestedAmount? }`, where the stable key is 8–160 characters and an optional requested amount is an atomic-unit string checked against approved partial terms and current allocations. Omitting it selects the unallocated remainder. Review accepts `{ invoiceId, requestedAmount? }` and returns `balance: { invoiced, settled, reserved, remaining }` alongside the decision. Authorization accepts `{ paymentId }` for the already stored exact payment. Destination, versions and permit fields are derived by the server; no endpoint accepts an arbitrary transaction.
 
-Keep the same key for a retry of the same preparation. A key used for a different invoice returns a conflict. If an operation is invalidated or submission becomes uncertain, reconcile it instead of choosing another key. See [payments](/docs/payments) and [recovery](/docs/recovery).
+Keep the same key and exact requested amount for a retry of the same preparation. A key used for a different invoice or amount returns a conflict. If an operation is invalidated or submission becomes uncertain, reconcile it instead of choosing another key. See [payments](/docs/payments) and [recovery](/docs/recovery).
 
 ## Additional read and export surfaces
 
@@ -132,4 +132,23 @@ Keep the same key for a retry of the same preparation. A key used for a differen
 
 ## Schema scope and implemented limits
 
-The source of truth for record validation is `src/lib/server/records.ts`. Domain capabilities can be broader than the current HTTP record schema: for example, hourly quantities and explicitly requested partial amounts exist in the verifier model but are not fully exposed through the current invoice preparation path. Consult [agreements](/docs/agreements), [verification](/docs/verification) and [agents](/docs/agents) before building an assistant around those fields.
+The source of truth for record validation is `src/lib/server/records.ts`. Hourly engagements expose `hourlyRate`, `maximumQuantity`, `minimumPartial` and `acceptanceMaxAgeSeconds`; hourly invoices expose `quantity`. Quantities have at most six decimal places and arithmetic never rounds fractional atomic charges. An explicit owner/approver invoice correction can rebind current `engagementVersion` or the current trusted `destinationVersion`/`destinationChainId` after allocations are resolved. That creates a material terms version and requires fresh acceptance. Settlement bookkeeping preserves material terms so a valid accepted installment can retain its approval for the remainder.
+
+## Operations and access management
+
+| Method and organization-scoped suffix | Behavior |
+| --- | --- |
+| GET `/operations` | Payable calendar, deduplicated currency totals, cases, current members, versioned preferences, non-sending digest and recent delivery status |
+| PUT `/operations/preferences` | Owner-only `{ expectedVersion, preferences }` with timezone, notification opt-in, quiet hours, reminder days and escalation hours |
+| PUT `/operations/cases/{id}` | Versioned `{ expectedVersion, owner, status, priority, dueAt?, resolution }`; current assignee membership required, queues reassessment only |
+| GET `/operations/close?from=YYYY-MM-DD&through=YYYY-MM-DD&format=json` | Dated operational pack, settled payments, unresolved effects, ledger and incomplete-evidence warnings; CSV also available |
+| GET `/invoices/{id}/balance` | Exact current invoice/obligation allocations, invoice version and remaining balance; not authorization |
+| GET `/payments/{id}` | Private payment state, exact permit fields and source/destination timestamps; verifier signatures omitted |
+| POST `/acceptances/{id}/revoke` | `{ expectedVersion, reason }`; owner or original authorized acceptor withdrawal, invalidates unsubmitted application authority |
+| GET `/vendor-links` | Owner/approver metadata with administrative IDs; never bearer tokens or token hashes |
+| GET `/intake-keys` | Owner-only forwarding-key metadata; raw tokens appear only at creation |
+| POST `/vendor-links/{id}/revoke` or `/intake-keys/{id}/revoke` | Scoped revocation; no financial authority granted |
+| POST `/members/{wallet}/remove` | Owner-only removal of a non-owner member; signed permits still need independent revocation/expiry |
+| GET `/activation` | Owner-only redacted local configuration report; no network probes or activation certification |
+
+All suffixes above begin `/api/organizations/{org}`. Mutations retain same-origin session and current role checks. Saved workspace opt-in and configured worker credentials both gate notifications. The operations worker only claims `operations.notify` jobs and carries no financial custody. A provider timeout is recorded as uncertain and is not automatically resent. Read [operations desk](/docs/operations-desk) and [activation](/docs/activation) for limits.

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { quantityUnits } from "../domain/money";
 import { type Actor, requireRole, digest } from "./auth";
 import { type Database, id, ServiceError } from "./db";
 import {
@@ -9,7 +10,8 @@ const text = z.string().trim().min(1).max(2000),
   uuid = z.uuid(),
   amount = z.string().regex(/^(0|[1-9][0-9]{0,35})$/),
   address = z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-  date = z.iso.date();
+  date = z.iso.date(),
+  quantity = z.string().regex(/^(0|[1-9]\d{0,29})(\.\d{1,6})?$/);
 export const schemas = {
   vendor: z.object({
     name: text,
@@ -27,6 +29,15 @@ export const schemas = {
     currency: z.enum(["USD", "USDC"]).default("USDC"),
     amount,
     ceiling: amount,
+    hourlyRate: amount.optional(),
+    maximumQuantity: quantity.optional(),
+    minimumPartial: amount.optional(),
+    acceptanceMaxAgeSeconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(2592000)
+      .default(86400),
     effectiveFrom: date,
     effectiveTo: date,
     acceptanceRequired: z.boolean(),
@@ -40,7 +51,10 @@ export const schemas = {
     vendorId: uuid,
     engagementId: uuid,
     engagementVersion: z.number().int().positive().optional(),
+    destinationVersion: z.number().int().positive().optional(),
+    destinationChainId: z.number().int().positive().safe().optional(),
     reference: text,
+    quantity: quantity.optional(),
     amount,
     currency: z.enum(["USD", "USDC"]).default("USDC"),
     periodStart: date,
@@ -79,6 +93,8 @@ export const schemas = {
     title: text,
     reason: text,
     owner: text,
+    dueAt: z.iso.datetime().optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
     status: z
       .enum([
         "open",
@@ -214,6 +230,25 @@ export async function lockOrganization(db: Database, actor: Actor) {
     ).rows.length
   )
     throw new ServiceError(404, "NOT_FOUND", "Workspace not found.");
+  const machineObserver =
+    actor.role === "viewer" &&
+    ["system:standing-delegation", "system:chain-observer"].includes(
+      actor.wallet,
+    );
+  if (!machineObserver) {
+    const member = (
+      await db.query<{ role: Actor["role"] }>(
+        "SELECT role FROM members WHERE organization_id=$1 AND wallet=$2",
+        [actor.organizationId, actor.wallet.toLowerCase()],
+      )
+    ).rows[0];
+    if (!member || member.role !== actor.role)
+      throw new ServiceError(
+        403,
+        "ROLE_CHANGED",
+        "Your workspace access or role changed. Refresh before continuing.",
+      );
+  }
 }
 export async function verifiedDeployment(
   db: Database,
@@ -247,19 +282,25 @@ export async function invalidateUnsubmitted(
   db: Database,
   actor: Actor,
   reason: string,
-  filter: { vendorId?: string; engagementId?: string; policyId?: string },
+  filter: {
+    vendorId?: string;
+    engagementId?: string;
+    policyId?: string;
+    invoiceId?: string;
+  },
 ) {
   await db.query(
     `UPDATE payment_intents p SET invalidated_at=now(),invalidation_reason=$2,updated_at=now()
  WHERE p.organization_id=$1 AND p.state IN ('prepared','capacity_reserved','authorized') AND p.provider_id IS NULL AND p.source_tx IS NULL AND p.destination_tx IS NULL
  AND (($3::text IS NOT NULL AND p.engagement_id IN (SELECT id FROM records WHERE organization_id=$1 AND kind='engagement' AND body->>'vendorId'=$3))
- OR ($4::uuid IS NOT NULL AND p.engagement_id=$4) OR ($5::text IS NOT NULL AND (p.permit->>'policyId'=$5 OR p.permit->>'policyId' IS NULL)))`,
+ OR ($4::uuid IS NOT NULL AND p.engagement_id=$4) OR ($5::text IS NOT NULL AND (p.permit->>'policyId'=$5 OR p.permit->>'policyId' IS NULL)) OR ($6::uuid IS NOT NULL AND p.invoice_id=$6))`,
     [
       actor.organizationId,
       reason,
       filter.vendorId ?? null,
       filter.engagementId ?? null,
       filter.policyId ?? null,
+      filter.invoiceId ?? null,
     ],
   );
 }
@@ -378,7 +419,7 @@ export async function saveRecord(
       previous &&
       (
         await db.query(
-          "SELECT id FROM payment_intents WHERE organization_id=$1 AND invoice_id=$2 AND (state!='failed' OR terminal_failure_proof IS NULL OR source_tx IS NOT NULL) LIMIT 1",
+          "SELECT id FROM payment_intents WHERE organization_id=$1 AND invoice_id=$2 AND (state!='failed' OR terminal_failure_proof IS NULL OR source_tx IS NOT NULL OR destination_tx IS NOT NULL) LIMIT 1",
           [actor.organizationId, previous.id],
         )
       ).rows.length
@@ -398,23 +439,65 @@ export async function saveRecord(
         "Invoice amount and billing period are invalid.",
       );
     if (
-      !previous &&
       body.engagementVersion !== undefined &&
-      body.engagementVersion !== engagement.version
+      body.engagementVersion !== engagement.version &&
+      body.engagementVersion !== previous?.body.engagementVersion
     )
       throw new ServiceError(
         409,
         "STALE_TERMS",
         "Invoice intake must bind to the reviewed current engagement version.",
       );
+    if (
+      previous &&
+      body.engagementVersion !== undefined &&
+      body.engagementVersion !== previous.body.engagementVersion
+    )
+      requireRole(actor, ["owner", "approver"]);
     body.engagementVersion =
-      previous?.body.engagementVersion ?? engagement.version;
+      body.engagementVersion ??
+      previous?.body.engagementVersion ??
+      engagement.version;
+    // Payment bookkeeping can advance record versions without changing accepted delivery terms.
+    body.termsVersion = (previous?.version ?? 0) + 1;
+    const destinationRebind =
+      previous &&
+      ((body.destinationVersion !== undefined &&
+        body.destinationVersion !== previous.body.destinationVersion) ||
+        (body.destinationChainId !== undefined &&
+          body.destinationChainId !== previous.body.destinationChainId) ||
+        String(body.destination).toLowerCase() !==
+          String(previous.body.destination).toLowerCase());
+    if (destinationRebind) requireRole(actor, ["owner", "approver"]);
+    if (
+      (body.destinationVersion !== undefined ||
+        body.destinationChainId !== undefined ||
+        destinationRebind) &&
+      ((body.destinationVersion ??
+        previous?.body.destinationVersion ??
+        vendor.body.destinationVersion ??
+        vendor.version) !==
+        (vendor.body.destinationVersion ?? vendor.version) ||
+        (body.destinationChainId ??
+          previous?.body.destinationChainId ??
+          vendor.body.chainId) !== vendor.body.chainId ||
+        String(body.destination).toLowerCase() !==
+          String(vendor.body.destination).toLowerCase())
+    )
+      throw new ServiceError(
+        409,
+        "DESTINATION_BINDING",
+        "Explicitly review the current registered destination address, chain and version before rebinding this invoice.",
+      );
     body.destinationVersion =
+      body.destinationVersion ??
       previous?.body.destinationVersion ??
       vendor.body.destinationVersion ??
       vendor.version;
     body.destinationChainId =
-      previous?.body.destinationChainId ?? vendor.body.chainId;
+      body.destinationChainId ??
+      previous?.body.destinationChainId ??
+      vendor.body.chainId;
     body.obligationId =
       previous?.body.obligationId ??
       `${engagement.id}:${body.periodStart}:${body.periodEnd}`;
@@ -432,6 +515,36 @@ export async function saveRecord(
     body.paidAmount = previous?.body.paidAmount ?? "0";
   }
   if (kind === "engagement") {
+    if (previous && previous.body.vendorId !== body.vendorId)
+      throw new ServiceError(
+        409,
+        "ENGAGEMENT_IDENTITY",
+        "An agreement amendment cannot reassign the vendor; create a separate engagement.",
+      );
+    if (
+      body.billing === "hourly" &&
+      body.approved &&
+      (!body.hourlyRate ||
+        BigInt(String(body.hourlyRate)) <= 0n ||
+        !body.maximumQuantity ||
+        quantityUnits(String(body.maximumQuantity)) <= 0n)
+    )
+      throw new ServiceError(
+        400,
+        "HOURLY_TERMS",
+        "Approve a positive hourly rate and maximum billed quantity before activation.",
+      );
+    if (
+      body.minimumPartial !== undefined &&
+      (!body.partialAllowed ||
+        BigInt(String(body.minimumPartial)) <= 0n ||
+        BigInt(String(body.minimumPartial)) > BigInt(String(body.ceiling)))
+    )
+      throw new ServiceError(
+        400,
+        "PARTIAL_TERMS",
+        "A positive minimum installment requires approved partial payments and cannot exceed the engagement ceiling.",
+      );
     await getRecord(db, actor, "vendor", String(body.vendorId));
     if (
       BigInt(String(body.amount)) > BigInt(String(body.ceiling)) ||
@@ -523,6 +636,7 @@ export async function saveRecord(
     body.acceptedAt = new Date().toISOString();
     body.obligationId = invoice.body.obligationId;
     body.invoiceVersion = invoice.version;
+    body.invoiceTermsVersion = invoice.body.termsVersion ?? invoice.version;
     if (previous)
       throw new ServiceError(
         409,
@@ -616,6 +730,64 @@ export async function saveRecord(
   )
     await reassess(db, actor, kind, entityId, version);
   return { id: entityId, kind, version, body };
+}
+/** Withdraws an attestation without replacing its original statement or creating execution authority. */
+export async function revokeAcceptance(
+  db: Database,
+  actor: Actor,
+  acceptanceId: string,
+  expectedVersion: number,
+  reason: string,
+) {
+  requireRole(actor, ["owner", "approver"]);
+  const withdrawal = z.string().trim().min(10).max(2000).parse(reason);
+  await lockOrganization(db, actor);
+  const acceptance = await getRecord(
+    db,
+    actor,
+    "acceptance",
+    acceptanceId,
+    true,
+  );
+  if (acceptance.version !== expectedVersion)
+    throw new ServiceError(
+      409,
+      "VERSION_CONFLICT",
+      "This acceptance changed. Refresh before withdrawing it.",
+    );
+  if (
+    actor.role !== "owner" &&
+    String(acceptance.body.acceptedBy).toLowerCase() !==
+      actor.wallet.toLowerCase()
+  )
+    throw new ServiceError(
+      403,
+      "ACCEPTANCE",
+      "Only the original acceptor or a workspace owner can withdraw this attestation.",
+    );
+  if (acceptance.body.revoked) return acceptance;
+  const version = acceptance.version + 1;
+  const body: Record<string, unknown> = {
+    ...acceptance.body,
+    revoked: true,
+    revokedBy: actor.wallet,
+    revokedAt: new Date().toISOString(),
+    revocationReason: withdrawal,
+  };
+  await persistRecord(db, actor, "acceptance", acceptance.id, version, body);
+  await invalidateUnsubmitted(
+    db,
+    actor,
+    "Customer acceptance withdrawn; fresh review required",
+    { invoiceId: String(body.invoiceId) },
+  );
+  await reassess(db, actor, "acceptance", acceptance.id, version);
+  await audit(db, actor, "acceptance.revoked", acceptance.id, {
+    version,
+    invoiceId: body.invoiceId,
+    reason: withdrawal,
+  });
+  return { id: acceptance.id, kind: "acceptance" as const, version, body };
 }
 export type Reauthentication = { sessionToken: string };
 async function recentSession(
@@ -1013,15 +1185,34 @@ export async function confirmHistoryReconciliation(
           "INVOICE_MATCH",
           "Recipient, chain and amount must match the external invoice settlement.",
         );
+      if (
+        invoice.body.currency !== "USDC" ||
+        engagement.body.currency !== "USDC"
+      )
+        throw new ServiceError(
+          409,
+          "CURRENCY_MISMATCH",
+          "A USDC chain observation cannot settle another invoice currency without a separately approved conversion path.",
+        );
       const externalKey = `external:${body.safeId}:${key(transfer)}`;
       const existing = (
-        await db.query<{ id: string; invoice_id: string }>(
-          "SELECT id,invoice_id FROM payment_intents WHERE organization_id=$1 AND idempotency_key=$2",
+        await db.query<{
+          id: string;
+          invoice_id: string;
+          amount: string;
+          source_tx: string;
+        }>(
+          "SELECT id,invoice_id,amount,source_tx FROM payment_intents WHERE organization_id=$1 AND idempotency_key=$2",
           [actor.organizationId, externalKey],
         )
       ).rows[0];
       if (existing) {
-        if (existing.invoice_id !== invoice.id)
+        if (
+          existing.invoice_id !== invoice.id ||
+          existing.amount !== transfer.amount ||
+          existing.source_tx.toLowerCase() !==
+            transfer.transactionHash.toLowerCase()
+        )
           throw new ServiceError(
             409,
             "PAYMENT_MATCH",
@@ -1053,6 +1244,29 @@ export async function confirmHistoryReconciliation(
         ],
       );
       createdPayments.push(paymentId);
+      const paid = (
+        await db.query<{ amount: string }>(
+          "SELECT COALESCE(SUM(amount),0)::text AS amount FROM payment_intents WHERE organization_id=$1 AND invoice_id=$2 AND state='settled'",
+          [actor.organizationId, invoice.id],
+        )
+      ).rows[0].amount;
+      await persistRecord(
+        db,
+        actor,
+        "invoice",
+        invoice.id,
+        invoice.version + 1,
+        {
+          ...invoice.body,
+          termsVersion: invoice.body.termsVersion ?? invoice.version,
+          paidAmount: paid,
+          status:
+            BigInt(paid) >= BigInt(String(invoice.body.amount))
+              ? "paid"
+              : "partially_paid",
+        },
+      );
+      await reassess(db, actor, "invoice", invoice.id, invoice.version + 1);
       await invalidateUnsubmitted(
         db,
         actor,

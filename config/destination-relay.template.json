@@ -1,0 +1,34 @@
+{
+  "organizationId": "",
+  "sourceChainId": null,
+  "destinationChainId": null,
+  "sourceDomain": null,
+  "destinationDomain": null,
+  "sourceModule": "",
+  "sourceSafe": "",
+  "sourceToken": "",
+  "sourceMessenger": "",
+  "destinationMessenger": "",
+  "sourceAdapter": "",
+  "destinationTransmitter": "",
+  "destinationToken": "",
+  "sourceRpcUrl": "",
+  "destinationRpcUrl": "",
+  "destinationTransmitterCodeHash": "",
+  "destinationMessengerCodeHash": "",
+  "circle": {
+    "binary": "circle",
+    "wallet": "",
+    "chain": "",
+    "cliHome": ""
+  },
+  "review": {
+    "reviewer": "",
+    "reportHash": "",
+    "compatibilityTransaction": "",
+    "verifiedAt": "",
+    "expiresAt": ""
+  },
+  "testnet": true,
+  "enabled": false
+}

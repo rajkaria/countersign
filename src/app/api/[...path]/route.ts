@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
 import {
   database,
   transaction,
@@ -26,6 +25,7 @@ import {
   proposeDestinationChange,
   confirmDestinationChange,
   confirmHistoryReconciliation,
+  revokeAcceptance,
 } from "@/lib/server/records";
 import { storeDocument, openDocument } from "@/lib/server/documents";
 import { githubPullRequest } from "@/lib/integrations/github";
@@ -36,10 +36,28 @@ import { attachDestinationRelayTransaction } from "@/lib/integrations/relay";
 import { overrideInvoice } from "@/lib/server/overrides";
 import { accountingExport, csvCell } from "@/lib/server/export";
 import { buildCashPlan } from "@/lib/server/planning";
-import { extractTerms } from "@/lib/server/extraction";
+import { extractDocument } from "@/lib/server/extraction";
 import { proposeDecisionWithModel } from "@/lib/integrations/agent";
 import { importInvoices } from "@/lib/server/intake";
 import { evaluateInvoice, preparePayment } from "@/lib/server/review";
+import {
+  operationsDesk,
+  saveOperationsPreferences,
+  updateOperationsCase,
+  accountingClose,
+  closeCsv,
+} from "@/lib/server/operations";
+import {
+  listCapabilities,
+  revokeCapability,
+  removeMember,
+  paymentDetails,
+  invoiceBalance,
+  issueVendorLink,
+  issueIntakeKey,
+  updateMember,
+} from "@/lib/server/access";
+import { inspectActivation } from "@/lib/server/activation";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const uuid = z.uuid();
@@ -98,7 +116,7 @@ async function handle(
       return reply({
         service: "countersign",
         status: "ok",
-        version: "0.1.0",
+        version: "0.2.0",
         workspaceConfigured: Boolean(process.env.DATABASE_URL),
         executionEnabled: false,
       });
@@ -204,6 +222,111 @@ async function handle(
       actor = await authorize(db, request, organizationId);
     if (method !== "GET") checkOrigin(request);
     await limit(db, `api:${actor.wallet}`, 120);
+    if (path[2] === "activation" && method === "GET") {
+      requireRole(actor, ["owner"]);
+      return reply(inspectActivation({ profile: "web", organizationId }));
+    }
+    if (
+      path[2] === "acceptances" &&
+      path[3] &&
+      path[4] === "revoke" &&
+      method === "POST"
+    ) {
+      const body = z
+        .object({
+          expectedVersion: z.number().int().positive(),
+          reason: z.string().trim().min(12).max(2000),
+        })
+        .strict()
+        .parse(await json(request));
+      return reply(
+        await transaction((tx) =>
+          revokeAcceptance(
+            tx,
+            actor,
+            uuid.parse(path[3]),
+            body.expectedVersion,
+            body.reason,
+          ),
+        ),
+      );
+    }
+    if (path[2] === "operations") {
+      if (method === "GET" && !path[3])
+        return reply(await operationsDesk(db, actor));
+      if (method === "PUT" && path[3] === "preferences") {
+        const body = await json(request);
+        return reply(
+          await transaction((tx) => saveOperationsPreferences(tx, actor, body)),
+        );
+      }
+      if (method === "PUT" && path[3] === "cases" && path[4]) {
+        const body = await json(request);
+        return reply(
+          await transaction((tx) =>
+            updateOperationsCase(tx, actor, uuid.parse(path[4]), body),
+          ),
+        );
+      }
+      if (method === "GET" && path[3] === "close") {
+        const query = new URL(request.url).searchParams;
+        const close = await accountingClose(db, actor, {
+          from: query.get("from"),
+          through: query.get("through"),
+        });
+        if (query.get("format") === "csv")
+          return new Response(closeCsv(close), {
+            headers: {
+              "Content-Type": "text/csv",
+              "Content-Disposition": `attachment; filename="countersign-close-${close.period.from}-${close.period.through}.csv"`,
+              "Cache-Control": "no-store",
+            },
+          });
+        return new Response(JSON.stringify(close, null, 2), {
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Disposition": `attachment; filename="countersign-close-${close.period.from}-${close.period.through}.json"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+    }
+    if (
+      path[2] === "payments" &&
+      path[3] &&
+      path.length === 4 &&
+      method === "GET"
+    )
+      return reply(await paymentDetails(db, actor, uuid.parse(path[3])));
+    if (
+      path[2] === "invoices" &&
+      path[3] &&
+      path[4] === "balance" &&
+      method === "GET"
+    )
+      return reply(await invoiceBalance(db, actor, uuid.parse(path[3])));
+    if (path[2] === "vendor-links" || path[2] === "intake-keys") {
+      if (method === "GET" && !path[3])
+        return reply(await listCapabilities(db, actor, path[2]));
+      if (method === "POST" && path[3] && path[4] === "revoke")
+        return reply(
+          await transaction((tx) =>
+            revokeCapability(
+              tx,
+              actor,
+              path[2] as "vendor-links" | "intake-keys",
+              uuid.parse(path[3]),
+            ),
+          ),
+        );
+    }
+    if (
+      path[2] === "members" &&
+      path[3] &&
+      path[4] === "remove" &&
+      method === "POST"
+    )
+      return reply(await transaction((tx) => removeMember(tx, actor, path[3])));
     if (
       path[2] === "payments" &&
       path[3] &&
@@ -420,9 +543,16 @@ async function handle(
       }
     }
     if (path[2] === "extract" && method === "POST") {
-      const body = z.object({ documentId: uuid }).parse(await json(request));
+      const body = z
+        .object({
+          documentId: uuid,
+          kind: z.enum(["agreement", "invoice"]).default("agreement"),
+        })
+        .parse(await json(request));
       await limit(db, `model:${organizationId}`, 20, 3600);
-      return reply(await extractTerms(db, actor, body.documentId));
+      return reply(
+        await extractDocument(db, actor, body.documentId, body.kind),
+      );
     }
     if (path[2] === "agent-review" && method === "POST") {
       requireRole(actor, ["owner", "approver", "operator"]);
@@ -549,20 +679,37 @@ async function handle(
     }
     if (path[2] === "review" && method === "POST") {
       requireRole(actor, ["owner", "approver", "operator"]);
-      const { invoiceId } = z
-        .object({ invoiceId: uuid })
+      const { invoiceId, requestedAmount } = z
+        .object({
+          invoiceId: uuid,
+          requestedAmount: z
+            .string()
+            .regex(/^(0|[1-9][0-9]{0,35})$/)
+            .optional(),
+        })
         .parse(await json(request));
       return reply(
-        await transaction((tx) => evaluateInvoice(tx, actor, invoiceId)),
+        await transaction((tx) =>
+          evaluateInvoice(tx, actor, invoiceId, undefined, requestedAmount),
+        ),
       );
     }
     if (path[2] === "prepare" && method === "POST") {
       requireRole(actor, ["owner", "approver", "operator"]);
-      const { invoiceId, key } = z
-        .object({ invoiceId: uuid, key: z.string().min(8).max(160) })
+      const { invoiceId, key, requestedAmount } = z
+        .object({
+          invoiceId: uuid,
+          key: z.string().min(8).max(160),
+          requestedAmount: z
+            .string()
+            .regex(/^(0|[1-9][0-9]{0,35})$/)
+            .optional(),
+        })
         .parse(await json(request));
       return reply(
-        await transaction((tx) => preparePayment(tx, actor, invoiceId, key)),
+        await transaction((tx) =>
+          preparePayment(tx, actor, invoiceId, key, requestedAmount),
+        ),
       );
     }
     if (path[2] === "intake-events" && method === "GET")
@@ -648,50 +795,28 @@ async function handle(
             role: z.enum(["approver", "operator", "viewer"]),
           })
           .parse(await json(request));
-        if (body.wallet.toLowerCase() === actor.wallet)
-          throw new ServiceError(
-            400,
-            "OWNER_ROLE",
-            "Owner role cannot be changed here.",
-          );
-        await db.query(
-          "INSERT INTO members(organization_id,wallet,role) VALUES($1,$2,$3) ON CONFLICT(organization_id,wallet) DO UPDATE SET role=EXCLUDED.role",
-          [organizationId, body.wallet.toLowerCase(), body.role],
+        return reply(
+          await transaction((tx) =>
+            updateMember(tx, actor, body.wallet, body.role),
+          ),
         );
-        await audit(db, actor, "member.updated", body.wallet, {
-          role: body.role,
-        });
-        return reply({ saved: true });
       }
     }
     if (path[2] === "vendor-links" && method === "POST") {
       requireRole(actor, ["owner", "approver"]);
       const body = z.object({ caseId: uuid }).parse(await json(request));
-      const record = await getRecord(db, actor, "case", body.caseId);
-      const token = randomBytes(32).toString("base64url");
-      await db.query(
-        "INSERT INTO vendor_links(token_hash,organization_id,vendor_id,case_id,expires_at) VALUES($1,$2,$3,$4,now()+interval '7 days')",
-        [digest(token), organizationId, record.body.vendorId, record.id],
+      return reply(
+        await transaction((tx) => issueVendorLink(tx, actor, body.caseId)),
       );
-      await audit(db, actor, "vendor_link.created", record.id);
-      return reply({ path: `/vendor#${token}`, expiresInDays: 7 });
     }
     if (path[2] === "intake-keys" && method === "POST") {
       requireRole(actor, ["owner"]);
       const body = z
         .object({ label: z.string().min(1).max(120) })
         .parse(await json(request));
-      const token = randomBytes(32).toString("base64url");
-      await db.query(
-        "INSERT INTO intake_keys(token_hash,organization_id,label,created_by) VALUES($1,$2,$3,$4)",
-        [digest(token), organizationId, body.label, actor.wallet],
+      return reply(
+        await transaction((tx) => issueIntakeKey(tx, actor, body.label)),
       );
-      return reply({
-        token,
-        endpoint: "/api/intake",
-        warning:
-          "Store this token securely. It is shown only once and cannot approve or pay invoices.",
-      });
     }
     if (path[2] === "export" && method === "GET") {
       const rows = await accountingExport(db, actor);

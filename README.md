@@ -8,11 +8,17 @@ Explore the isolated synthetic workspace without a wallet. The authenticated wor
 
 [Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
 
+The operating desk combines due dates, settled and committed balances, exception owners, reminder preferences and accounting period exports. Hourly agreements, versioned invoice corrections and exact partial-payment requests are available through the authenticated console. Optional agreement/invoice extraction stays proposal-only and links to the complete original.
+
+[Explore the operations demo](https://countersign-jet.vercel.app/workspace/operations) · [Activate a real workspace](docs/activation.md) · [Operations desk guide](docs/operations-desk.md)
+
 ## Product preview
 
 ![Countersign landing page](docs/assets/landing.png)
 
 ![Isolated synthetic payment workspace](docs/assets/workspace.png)
+
+![Synthetic operations desk](docs/assets/operations.png)
 
 The workspace screenshot contains fictional sample records. No customer activity or real payment is represented.
 
@@ -65,10 +71,12 @@ The implementation uses Next.js, TypeScript, PostgreSQL, viem, Circle CLI integr
 - [Reserved protection](docs/protection.md)
 - [Evidence and evaluation](docs/evaluation.md)
 - [Verified facts and external gates](docs/FACTS.md)
+- [Activation diagnostics and restore rehearsal](docs/activation.md)
+- [Operations desk and accounting period packs](docs/operations-desk.md)
 
 ## Public handbook and machine-readable documentation
 
-The handbook at `/docs` contains 29 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
+The handbook at `/docs` contains 31 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
 
 - `/llms.txt` is the discovery index, with descriptions and absolute Markdown links.
 - `/llms-full.txt` contains the complete public handbook, with source URLs and availability boundaries.

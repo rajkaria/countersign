@@ -103,6 +103,14 @@ export const guides: Guide[] = [
     description: "The subledger, CSV exports, and evidence for bookkeeping.",
   },
   {
+    slug: "operations-desk",
+    title: "Payment operations desk",
+    file: "operations-desk.md",
+    group: "Product guides",
+    description:
+      "Due dates, exception ownership, reminder preferences and accounting period packs.",
+  },
+  {
     slug: "receipts",
     title: "Receipts & verifier",
     file: "receipts.md",
@@ -164,6 +172,14 @@ export const guides: Guide[] = [
     group: "Build & operate",
     description:
       "Persistence, encryption, migration, workers, and operational readiness.",
+  },
+  {
+    slug: "activation",
+    title: "Activate a real workspace",
+    file: "activation.md",
+    group: "Build & operate",
+    description:
+      "Redacted configuration diagnostics, read-only probes and exact external activation steps.",
   },
   {
     slug: "domain",

@@ -31,6 +31,7 @@ type Pending = {
   amount: string;
   permit: Record<string, unknown>;
   source_tx: string | null;
+  destination_tx: string | null;
   source_confirmed_at: string | null;
   terminal_failure_proof: string | null;
   invalidated_at: string | null;
@@ -75,7 +76,10 @@ export const standingAutomationDependencies: AutomationDependencies = {
 const paidOrCanceled = (row: RecordRow) =>
   ["paid", "canceled"].includes(String(row.body.status));
 const released = (p: Pending) =>
-  p.state === "failed" && Boolean(p.terminal_failure_proof) && !p.source_tx;
+  p.state === "failed" &&
+  Boolean(p.terminal_failure_proof?.trim()) &&
+  !p.source_tx &&
+  !p.destination_tx;
 function meaningfulFindings(d: Decision) {
   return d.findings.filter((f) => f.severity !== "info");
 }
