@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { version as softwareVersion } from "../../../../package.json";
 import {
   database,
   transaction,
@@ -121,7 +122,7 @@ async function handle(
       return reply({
         service: "countersign",
         status: "ok",
-        version: "0.3.0",
+      version: softwareVersion,
         workspaceConfigured: workspaceConfiguration().workspaceConfigured,
         executionEnabled: false,
       });

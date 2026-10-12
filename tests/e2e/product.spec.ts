@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { guides } from "../../src/lib/content/guides";
+const { version: expectedVersion } = JSON.parse(
+  readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+) as { version: string };
 test("landing, docs, private auth and synthetic workspace remain distinctly labeled", async ({
   page,
 }) => {
@@ -37,7 +41,9 @@ test("every handbook route renders and unknown routes fail cleanly", async ({
 test("health is public but private workspace data cannot be retrieved anonymously", async ({
   request,
 }) => {
-  expect((await request.get("/api/health")).status()).toBe(200);
+  const health = await request.get("/api/health");
+  expect(health.status()).toBe(200);
+  expect((await health.json()).version).toBe(expectedVersion);
   const response = await request.get(
     "/api/organizations/11111111-1111-4111-8111-111111111111/snapshot",
   );
