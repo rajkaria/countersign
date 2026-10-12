@@ -26,6 +26,7 @@ import {
   confirmDestinationChange,
   confirmHistoryReconciliation,
   revokeAcceptance,
+  lockOrganization,
 } from "@/lib/server/records";
 import { storeDocument, openDocument } from "@/lib/server/documents";
 import { githubPullRequest } from "@/lib/integrations/github";
@@ -37,7 +38,7 @@ import { overrideInvoice } from "@/lib/server/overrides";
 import { accountingExport, csvCell } from "@/lib/server/export";
 import { buildCashPlan } from "@/lib/server/planning";
 import { extractDocument } from "@/lib/server/extraction";
-import { proposeDecisionWithModel } from "@/lib/integrations/agent";
+import { proposeDecisionWithModel, decisionEvidence } from "@/lib/integrations/agent";
 import { importInvoices } from "@/lib/server/intake";
 import { evaluateInvoice, preparePayment } from "@/lib/server/review";
 import {
@@ -608,35 +609,34 @@ async function handle(
         evaluateInvoice(tx, actor, body.invoiceId),
       );
       const decision = result.decision;
-      const records = (
-        await db.query(
-          "SELECT id,body FROM records WHERE organization_id=$1 AND id=ANY($2::uuid[])",
-          [
-            organizationId,
-            decision.sourceIds.filter((x) => uuid.safeParse(x).success),
-          ],
-        )
-      ).rows;
+      const evidence = decisionEvidence(result.input, decision);
       const proposal = await proposeDecisionWithModel({
         decision,
-        evidence: records.map((r) => ({
-          id: r.id,
-          content: JSON.stringify(r.body),
-        })),
+        evidence,
         apiKey: process.env.MODEL_API_KEY,
         model: process.env.MODEL_NAME,
       });
       const proposalId = id();
-      await db.query(
+      const binding = {
+        invoiceId: decision.invoiceId, invoiceVersion: decision.invoiceVersion,
+        engagementId: decision.engagementId, engagementVersion: decision.engagementVersion,
+        policyVersion: decision.policyVersion, evaluatedAt: decision.evaluatedAt, validUntil: decision.validUntil,
+      };
+      const saved = { id: proposalId, ...proposal, decisionId: result.id, binding, evidence };
+      await transaction(async (tx) => {
+        await lockOrganization(tx, actor);
+        await tx.query(
         "INSERT INTO records(organization_id,kind,id,body,created_by) VALUES($1,'agent_proposal',$2,$3,$4)",
         [
           organizationId,
           proposalId,
-          JSON.stringify({ ...proposal, decisionId: result.id }),
+          JSON.stringify(saved),
           actor.wallet,
         ],
-      );
-      return reply({ id: proposalId, ...proposal });
+        );
+        await audit(tx, actor, "agent.proposed", body.invoiceId, { proposalId, decisionId: result.id, authority: proposal.authority, binding });
+      });
+      return reply(saved);
     }
     if (path[2] === "import" && method === "POST") {
       const body = z

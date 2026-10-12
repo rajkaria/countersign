@@ -112,7 +112,7 @@ Payouts compensate separately; they do not reverse the vendor payment. Payment i
 
 ## Installation and recovery runbook
 
-No addresses are hardcoded. Use a verified deployment manifest specific to the chain and token.
+Application deployment addresses come from a verified manifest specific to the chain and token. Arc native-USDC observations additionally select the official protocol token and system-event emitter for the identified Arc chain.
 
 1. Verify the Safe implementation/module API, owner threshold and existing modules. Confirm the token is canonical, non-rebasing and has no transfer tax; record decimals. Confirm the exact chain, messenger bytecode, destination domain, fee policy and RPC finality assumptions.
 2. Deploy the reserve with independently controlled role addresses and accepted terms, then deploy the module with the existing Safe/token/reserve. If protection is unavailable, deploy with reserve address zero and leave covered-only disabled; never advertise funded protection.
@@ -124,6 +124,20 @@ No addresses are hardcoded. Use a verified deployment manifest specific to the c
 8. If a verifier key is compromised, pause, rotate executor/verifier with `configure`, and re-approve exact pending work under a fresh epoch. `confirmDestination` is callable by the current verifier even while payment execution is paused; a replacement verifier can reconcile old bridge records. Revocation itself clears the verifier, so install a replacement through the Safe before attempting reconciliation.
 9. If the reserve reviewer is unavailable, pending claims remain fully allocated. Use the reviewer's own multisig recovery procedure. There is deliberately no operator bypass or unilateral role replacement. Do not withdraw or dilute committed funds to free capacity.
 10. After confirmed refund or aborted execution, reconcile the original operation, preserve its identity and liability records, and require fresh authorized terms for any new payable. On-chain used identifiers and lifetime spending are not reset.
+
+## Arc compatibility and owner evidence
+
+Arc supports an [ERC20 USDC interface](https://docs.arc.io/arc/references/contract-addresses) at `0x3600000000000000000000000000000000000000` with 6 decimals, sharing the native USDC balance with 18 decimals. Countersign's permits and principal ledger use the verified ERC20 integer units. Native observation preserves original precision and rounds conservatively; a fractional outgoing transfer requires independent reconciliation. The contracts still need real Arc deployment/composition review. A conventional local EVM cannot reproduce all [Arc runtime behavior](https://docs.arc.io/arc/references/evm-differences).
+
+The source settlement verifier binds the exact module event, permit digest and recipient at a finalized canonical block. It does not assume the executor is the outer transaction sender. The automatic destination relay currently verifies a **direct outer** `receiveMessage` transaction from the configured Circle wallet to the transmitter. The inspected Circle CLI 1.1.4 creates EVM agent wallets as SCAs. A sponsored account-abstraction transaction may instead use a bundler and EntryPoint as the outer envelope. Consequently, this relay check does **not** establish SCA inner-call compatibility and may reject a successful SCA compatibility transaction. Keep automatic destination relay disabled until the exact supported Circle envelope, calldata, successful inner-call identity and finalized mint evidence are independently reviewed. Do not remove the identity check or replace the Circle signer simply to make a demo pass. The owner can reconcile an independently received destination transaction through the existing recovery workflow; a source burn remains pending until exact destination evidence is verified.
+
+Before any real testnet business settlement, the owner supplies:
+
+1. A dedicated workspace database, encrypted-document secrets/restore evidence, organization identity and consented agreement, invoice and acceptance. Preserve customer evidence separately from fixtures.
+2. An owner-completed [Circle testnet login](https://developers.circle.com/agent-stack/agent-wallets/quickstart), accepted provider terms and private profile custody. Enter the OTP personally. Confirm the actual `ARC-TESTNET` agent wallet, CLI version, deployment/session status and sponsorship limits; [sessions expire after 28 days](https://developers.circle.com/agent-stack/agent-wallets/quickstart). Keep Circle executor and verifier credentials separate.
+3. An independently recoverable Safe, actual owner-threshold administration, canonical token/decimals, reviewed module bytecode, isolated verifier address, small expiring policy, exact engagement/obligation caps and explicit testnet funding authorization. Retain code hashes and successful execution/replay/revocation/disable/recovery evidence in a current manifest. The financial provider dependency gate must be resolved first.
+4. For a cross-chain case, current canonical messenger/transmitter addresses, domains, destination token/code hashes, reviewed zero-fee standard route, source message/attestation, and finalized exact recipient mint proof. Real compatibility must include the Circle SCA envelope; mock transactions and a successful arbitrary receipt are insufficient.
+5. A persistent worker with private profile storage, renewal/expiry procedures, isolated key custody, monitoring and a tested restart/timeout reconciliation exercise. Submitted identities and liabilities survive credential or review expiry. Protection additionally requires explicit terms, collateral allocation and independent reviewer/recovery evidence before it is advertised.
 
 ## Verification and limitations
 

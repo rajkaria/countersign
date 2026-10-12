@@ -40,14 +40,18 @@ import {
   INITIAL_INVOICES,
   type DemoInvoice,
   type InvoiceStatus,
-  money,
   parseInvoiceInput,
   resolveAcceptance,
   planPayments,
   toCsv,
   runRecoveryScenario,
   createDemoReceipt,
+  getDemoReview,
+  isDemoFixture,
+  invoiceMoney,
+  UNVERIFIED_SAMPLE_REASON,
 } from "@/lib/demo";
+import { formatObligationAmount } from "@/lib/domain/money";
 const navigation = [
   { id: "", label: "Overview", icon: LayoutDashboard },
   { id: "obligations", label: "Obligations", icon: Files },
@@ -155,10 +159,17 @@ export function Workspace({ view = "" }: { view?: string }) {
               typeof i.description === "string" &&
               typeof i.reason === "string" &&
               typeof i.due === "string" &&
+              /^\d{4}-\d{2}-\d{2}$/.test(i.due) &&
+              Number.isFinite(Date.parse(i.due)) &&
+              new Date(i.due).toISOString().slice(0, 10) === i.due &&
               ["ready", "held", "scheduled", "settled"].includes(i.status) &&
-              ["none", "acceptance", "destination", "duplicate"].includes(
-                i.issue,
-              ) &&
+              [
+                "none",
+                "acceptance",
+                "destination",
+                "duplicate",
+                "source",
+              ].includes(i.issue) &&
               Number.isSafeInteger(i.amountCents) &&
               i.amountCents > 0 &&
               Number.isInteger(i.version) &&
@@ -166,7 +177,21 @@ export function Workspace({ view = "" }: { view?: string }) {
               i.history.every((h: unknown) => typeof h === "string"),
           )
         )
-          startTransition(() => setInvoices(values));
+          startTransition(() =>
+            setInvoices(
+              values.map((invoice: DemoInvoice) =>
+                isDemoFixture(invoice)
+                  ? { ...invoice, currency: "USDC" }
+                  : {
+                      ...invoice,
+                      currency: "USD",
+                      status: "held",
+                      issue: "source",
+                      reason: UNVERIFIED_SAMPLE_REASON,
+                    },
+              ),
+            ),
+          );
       }
     } catch {
       startTransition(() =>
@@ -205,6 +230,7 @@ export function Workspace({ view = "" }: { view?: string }) {
         .includes(query.toLowerCase()),
   );
   const plan = planPayments(invoices, 1050000);
+  const selectedReview = selected ? getDemoReview(selected) : null;
   function updateInvoice(next: DemoInvoice) {
     setInvoices((current) => current.map((i) => (i.id === next.id ? next : i)));
     setSelected(next);
@@ -229,7 +255,7 @@ export function Workspace({ view = "" }: { view?: string }) {
       setInvoices((current) => [invoice, ...current]);
       setShowAdd(false);
       setToast(
-        "Sample invoice added. Acceptance is required before preparing it.",
+        "Custom sample added. Approved source evidence is required; the invoice stays on hold.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add invoice.");
@@ -386,12 +412,12 @@ export function Workspace({ view = "" }: { view?: string }) {
               <div className="metric-grid">
                 <Metric
                   label="Open invoice value"
-                  value={money(open.reduce((s, i) => s + i.amountCents, 0))}
+                  value={totalMoney(open)}
                   detail={`${open.length} invoices · includes held duplicates`}
                 />
                 <Metric
                   label="Ready to prepare"
-                  value={money(ready.reduce((s, i) => s + i.amountCents, 0))}
+                  value={totalMoney(ready)}
                   detail={`${ready.length} ${ready.length === 1 ? "invoice matches" : "invoices match"} all checks`}
                   accent
                 />
@@ -402,8 +428,8 @@ export function Workspace({ view = "" }: { view?: string }) {
                 />
                 <Metric
                   label="Available after buffer"
-                  value="$10,500"
-                  detail="$18,500 cash − $8,000 protected"
+                  value="10,500.00 USDC"
+                  detail="18,500 USDC cash − 8,000 USDC reserve"
                 />
               </div>
               <div className="attention-panel">
@@ -456,8 +482,8 @@ export function Workspace({ view = "" }: { view?: string }) {
                   </h2>
                   <span>
                     {visible.length}{" "}
-                    {visible.length === 1 ? "record" : "records"} · USD amounts
-                    / USDC obligations
+                    {visible.length === 1 ? "record" : "records"} · Exact sample
+                    currencies
                   </span>
                 </div>
                 <button
@@ -554,8 +580,8 @@ export function Workspace({ view = "" }: { view?: string }) {
                           </button>
                         </td>
                         <td className="amount-cell">
-                          {money(invoice.amountCents)}
-                          <small>USDC</small>
+                          {invoiceMoney(invoice)}
+                          <small>{invoice.currency}</small>
                         </td>
                         <td>
                           {new Date(
@@ -565,7 +591,7 @@ export function Workspace({ view = "" }: { view?: string }) {
                             day: "numeric",
                             timeZone: "UTC",
                           })}
-                          <small>2026</small>
+                          <small>{invoice.due.slice(0, 4)}</small>
                         </td>
                         <td>
                           <Status status={invoice.status} />
@@ -634,7 +660,7 @@ export function Workspace({ view = "" }: { view?: string }) {
                     <strong>Orbit Engineering</strong>
                     <p>Ready to prepare · Approved monthly retainer</p>
                   </div>
-                  <strong>$4,800</strong>
+                  <strong>4,800.00 USDC</strong>
                 </div>
                 <Link href="/workspace/plan" className="panel-link">
                   See the payment plan <ArrowRight size={15} />
@@ -661,59 +687,118 @@ export function Workspace({ view = "" }: { view?: string }) {
               <div className="metric-grid">
                 <Metric
                   label="Confirmed sample cash"
-                  value="$18,500"
+                  value="18,500.00 USDC"
                   detail="Synthetic balance · no linked wallet"
                 />
                 <Metric
                   label="Protected commitments"
-                  value="$8,000"
+                  value="8,000.00 USDC"
                   detail="Operating buffer and existing obligations"
                 />
                 <Metric
                   label="Available to plan"
-                  value="$10,500"
+                  value="10,500.00 USDC"
                   detail="Expected revenue excluded"
                   accent
                 />
                 <Metric
                   label="Eligible obligations"
-                  value={money(plan.reduce((s, i) => s + i.amountCents, 0))}
-                  detail={`${plan.length} ready or scheduled`}
+                  value={totalMoney(
+                    plan.items
+                      .filter((item) => item.eligible)
+                      .map((item) => item.invoice),
+                  )}
+                  detail={`${plan.items.filter((item) => item.eligible).length} ready or scheduled`}
                 />
               </div>
               <section className="panel">
                 <div className="panel-heading">
                   <h2>Your upcoming payment plan</h2>
-                  <span>Due-date priority</span>
+                  <span>Production planner · synthetic inputs</span>
+                </div>
+                <div className="callout">
+                  <Info size={19} />
+                  <div>
+                    <strong>Reproducible synthetic snapshot</strong>
+                    <p>
+                      As of {plan.generatedAt}.{" "}
+                      {formatObligationAmount(plan.input.confirmedCash, "USDC")}{" "}
+                      confirmed sample cash;{" "}
+                      {formatObligationAmount(plan.protectedTotal, "USDC")}{" "}
+                      reserve. No wallet, balance observation, policy or signing
+                      authority is connected. Custom USD invoices remain held
+                      and are excluded from USDC cash comparisons.
+                    </p>
+                    <details>
+                      <summary>Inspect synthetic planning inputs</summary>
+                      <p>
+                        Expected inflow:{" "}
+                        {formatObligationAmount(plan.expectedInflows, "USDC")},
+                        excluded from spendable cash. Each eligible item
+                        reserves capacity only when confirmed cash covers it.
+                        Future due dates remain scheduled.
+                      </p>
+                      <pre
+                        style={{
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {JSON.stringify(plan.input, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
                 </div>
                 <div className="plan-list">
-                  {plan.map((i, index) => (
-                    <div className="plan-row" key={i.id}>
-                      <div className="plan-sequence">{index + 1}</div>
-                      <div className="date-block">
-                        <span>OCT</span>
-                        <strong>{i.due.slice(-2)}</strong>
+                  {plan.items.map((item, index) => {
+                    const i = item.invoice;
+                    return (
+                      <div className="plan-row" key={i.id}>
+                        <div className="plan-sequence">{index + 1}</div>
+                        <div className="date-block">
+                          <span>
+                            {new Date(`${i.due}T12:00:00Z`)
+                              .toLocaleDateString("en-US", {
+                                month: "short",
+                                timeZone: "UTC",
+                              })
+                              .toUpperCase()}
+                          </span>
+                          <strong>{i.due.slice(-2)}</strong>
+                          <span>{i.due.slice(0, 4)}</span>
+                        </div>
+                        <div className="plan-vendor">
+                          <h3>{i.vendor}</h3>
+                          <p>
+                            {item.action}: {item.reason}
+                          </p>
+                          {item.eligible && (
+                            <p>
+                              Window: {item.executionAt.slice(0, 10)} ·
+                              Shortfall:{" "}
+                              {formatObligationAmount(item.shortfall, "USDC")}
+                            </p>
+                          )}
+                        </div>
+                        <strong>
+                          {invoiceMoney(i)} {i.currency}
+                        </strong>
+                        <span
+                          className={`badge badge-${item.reserved ? "ready" : "held"}`}
+                        >
+                          {item.reserved
+                            ? "Capacity reserved"
+                            : item.eligible
+                              ? "Cash shortfall"
+                              : "HOLD"}
+                        </span>
                       </div>
-                      <div className="plan-vendor">
-                        <h3>{i.vendor}</h3>
-                        <p>
-                          {i.funded
-                            ? "Fits available confirmed cash"
-                            : "Hold: insufficient uncommitted cash"}
-                        </p>
-                      </div>
-                      <strong>{money(i.amountCents)}</strong>
-                      <span
-                        className={`badge badge-${i.funded ? "ready" : "held"}`}
-                      >
-                        {i.funded ? "Within available cash" : "Cash shortfall"}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="panel-footer">
-                  <Info size={15} /> Held invoices are excluded until their
-                  evidence requirements are resolved.
+                  <Info size={15} /> Held invoices reserve no new capacity.
+                  Resolve their evidence requirements before planning a payment.
                 </div>
               </section>
               <div className="callout">
@@ -770,11 +855,15 @@ export function Workspace({ view = "" }: { view?: string }) {
                       </h3>
                       <p>{i.history[i.history.length - 1]}</p>
                       <div className="activity-meta">
-                        Decision v{i.version} · {money(i.amountCents)} USDC ·
+                        Decision v{i.version} · {invoiceMoney(i)} {i.currency} ·
                         Synthetic record
                       </div>
                     </div>
-                    <button className="button-quiet" onClick={() => receipt(i)}>
+                    <button
+                      className="button-quiet"
+                      disabled={!isDemoFixture(i)}
+                      onClick={() => receipt(i)}
+                    >
                       <Download size={15} /> Receipt
                     </button>
                   </article>
@@ -857,11 +946,15 @@ export function Workspace({ view = "" }: { view?: string }) {
                     </div>
                     <div>
                       <dt>Maximum per payment</dt>
-                      <dd>{mode === "delegate" ? "$5,000 USDC" : "$0"}</dd>
+                      <dd>
+                        {mode === "delegate" ? "5,000.00 USDC" : "0.00 USDC"}
+                      </dd>
                     </div>
                     <div>
-                      <dt>Rolling 30-day maximum</dt>
-                      <dd>{mode === "delegate" ? "$15,000 USDC" : "$0"}</dd>
+                      <dt>Rolling 24-hour maximum</dt>
+                      <dd>
+                        {mode === "delegate" ? "15,000.00 USDC" : "0.00 USDC"}
+                      </dd>
                     </div>
                     <div>
                       <dt>Allowed destinations</dt>
@@ -970,9 +1063,9 @@ export function Workspace({ view = "" }: { view?: string }) {
                   },
                   {
                     id: "malicious",
-                    title: "An invoice gives instructions",
+                    title: "Invoice recipient mismatch",
                     icon: ShieldCheck,
-                    copy: "A document asks the agent to use a new wallet address.",
+                    copy: "An invoice claims a different address from the approved register. This checks deterministic recipient validation; no model is run.",
                     result:
                       "Document text has no authority to change the vendor register. The invoice is held for a recipient mismatch. Expected next step: an authenticated owner reviews the destination change independently.",
                   },
@@ -1111,8 +1204,9 @@ export function Workspace({ view = "" }: { view?: string }) {
               </label>
             </div>
             <div className="inline-note">
-              <Info size={16} /> All new records start on hold until sample
-              acceptance is recorded. Do not enter private customer information.
+              <Info size={16} /> Custom input has no approved agreement or
+              trusted destination. It stays on hold; sample acceptance cannot
+              supply missing sources. Do not enter private customer information.
             </div>
             {error && (
               <p role="alert" className="form-error">
@@ -1164,7 +1258,7 @@ export function Workspace({ view = "" }: { view?: string }) {
                 {selected.reference} · Decision v{selected.version}
               </span>
               <h3>
-                {money(selected.amountCents)} <small>USDC</small>
+                {invoiceMoney(selected)} <small>{selected.currency}</small>
               </h3>
             </div>
             <Status status={selected.status} />
@@ -1185,33 +1279,172 @@ export function Workspace({ view = "" }: { view?: string }) {
           <h3 className="detail-label">THE EVIDENCE, SIDE BY SIDE</h3>
           <div className="evidence-comparison">
             <div>
-              <span>Approved agreement</span>
-              <strong>{selected.description.split(" · ")[0]}</strong>
-              <p>
-                {money(selected.amountCents)} · Approved vendor destination
-                <br />
-                Acceptance required before release
-              </p>
-              <small>Fictional agreement · version 2</small>
+              <span>
+                {selectedReview?.approvedTerms
+                  ? "Approved agreement"
+                  : "Source required"}
+              </span>
+              <strong>
+                {selectedReview?.approvedTerms
+                  ? selected.description.split(" · ")[0]
+                  : "No approved agreement supplied"}
+              </strong>
+              {selectedReview?.approvedTerms ? (
+                <>
+                  <p>
+                    {invoiceMoney(selected)} {selected.currency} · Fictional
+                    approved vendor destination
+                    <br />
+                    Acceptance required before release
+                  </p>
+                  <small>
+                    Fictional agreement · version{" "}
+                    {selectedReview.decision.engagementVersion}
+                  </small>
+                </>
+              ) : (
+                <p>
+                  This typed sample has no original terms, billing period,
+                  authenticated destination or authorized acceptance. Those
+                  sources cannot be invented from an amount and due date.
+                </p>
+              )}
             </div>
             <div>
               <span>Received invoice</span>
               <strong>{selected.reference}</strong>
               <p>
-                {money(selected.amountCents)} ·{" "}
-                {selected.issue === "destination"
-                  ? "Unrecognized destination"
-                  : "Approved destination matches"}
+                {invoiceMoney(selected)} {selected.currency} ·{" "}
+                {!selectedReview?.approvedTerms
+                  ? "Destination not supplied"
+                  : selected.issue === "destination"
+                    ? "Unrecognized destination"
+                    : "Approved destination matches"}
                 <br />
-                {selected.issue === "acceptance"
-                  ? "Delivery recorded; acceptance missing"
-                  : selected.issue === "duplicate"
-                    ? "Already matched to an existing obligation"
-                    : "Acceptance recorded"}
+                {!selectedReview?.approvedTerms
+                  ? "Source evidence missing"
+                  : selected.issue === "acceptance"
+                    ? "Delivery recorded; acceptance missing"
+                    : selected.issue === "duplicate"
+                      ? "Already matched to an existing obligation"
+                      : "Acceptance recorded"}
               </p>
               <small>Fictional invoice · {selected.due}</small>
             </div>
           </div>
+          {selectedReview && (
+            <>
+              <div className="callout">
+                <ShieldCheck size={19} />
+                <div>
+                  <strong>
+                    Production verifier result: {selectedReview.decision.action}
+                  </strong>
+                  <p>{selectedReview.decision.reason}</p>
+                  <p>
+                    Invoice version: {selectedReview.decision.invoiceVersion} ·
+                    Execution authority: none. The real pure verifier runs with
+                    synthetic inputs in Observe mode; no payment is authorized.
+                  </p>
+                  <p>
+                    Allowed proposals:{" "}
+                    {selectedReview.decision.availableActions.join(", ")}
+                  </p>
+                </div>
+              </div>
+              <details
+                id="demo-source-text"
+                className="callout"
+                style={{ display: "block" }}
+              >
+                <summary>Inspect synthetic source text</summary>
+                <p>
+                  These fictional source excerpts explain the sample. They are
+                  neither customer documents nor a live model response.
+                </p>
+                {selectedReview.sources.map((source) => (
+                  <article
+                    id={`demo-source-${source.id}`}
+                    key={source.id}
+                    style={{ marginTop: 14, overflowWrap: "anywhere" }}
+                  >
+                    <strong>{source.title}</strong>
+                    <p>
+                      {source.location} · Source ID: {source.id}
+                    </p>
+                    <p>{source.content}</p>
+                  </article>
+                ))}
+                <details>
+                  <summary>
+                    Inspect verifier findings and synthetic input
+                  </summary>
+                  <pre
+                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {JSON.stringify(
+                      {
+                        input: selectedReview.input,
+                        decision: selectedReview.decision,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </details>
+              </details>
+              {selectedReview.modelFixture && (
+                <details className="callout" style={{ display: "block" }}>
+                  <summary>Recorded model proposal fixture</summary>
+                  <p>
+                    No model was executed. This authored sample illustrates the
+                    proposal schema and is checked by the production proposal
+                    validator. It provides no measured model quality, latency,
+                    savings or usage evidence.
+                  </p>
+                  <strong>
+                    Proposal only: {selectedReview.modelFixture.proposal.action}
+                  </strong>
+                  <p>{selectedReview.modelFixture.proposal.reason}</p>
+                  <p>
+                    The useful language task is explaining delivery activity
+                    against the agreement’s acceptance requirement and asking a
+                    precise missing question. Approved rules, destinations,
+                    money and authority remain deterministic.
+                  </p>
+                  {selectedReview.modelFixture.proposal.missing.map(
+                    (question) => (
+                      <p key={question}>
+                        <strong>Missing question</strong>: {question}
+                      </p>
+                    ),
+                  )}
+                  <p>
+                    Citations stay inside this sample’s authorized source set:
+                  </p>
+                  {selectedReview.modelFixture.proposal.sourceIds.map((id) => (
+                    <div key={id}>
+                      <a
+                        href={`#demo-source-${id}`}
+                        onClick={() =>
+                          document
+                            .getElementById("demo-source-text")
+                            ?.setAttribute("open", "")
+                        }
+                      >
+                        Open cited source{" "}
+                        {
+                          selectedReview.sources.find(
+                            (source) => source.id === id,
+                          )?.title
+                        }
+                      </a>
+                    </div>
+                  ))}
+                </details>
+              )}
+            </>
+          )}
           <h3 className="detail-label">DECISION HISTORY</h3>
           <ol className="decision-history">
             {selected.history.map((h, index) => (
@@ -1332,6 +1565,7 @@ export function Workspace({ view = "" }: { view?: string }) {
           )}
           <button
             className="button-quiet receipt-download"
+            disabled={!selectedReview?.approvedTerms}
             onClick={() => receipt(selected)}
           >
             <Download size={15} /> Download illustrative decision record
@@ -1360,6 +1594,26 @@ export function Workspace({ view = "" }: { view?: string }) {
         </Modal>
       )}
     </div>
+  );
+}
+function totalMoney(invoices: DemoInvoice[]) {
+  const currencies = ["USDC", "USD"] as const;
+  return (
+    currencies
+      .flatMap((currency) => {
+        const group = invoices.filter(
+          (invoice) => invoice.currency === currency,
+        );
+        if (!group.length) return [];
+        const total = group.reduce(
+          (sum, invoice) => sum + invoice.amountCents,
+          0,
+        );
+        return [
+          `${invoiceMoney({ ...group[0], amountCents: total })} ${currency}`,
+        ];
+      })
+      .join(" + ") || "0.00 USDC"
   );
 }
 function Metric({

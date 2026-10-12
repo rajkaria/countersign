@@ -1,6 +1,22 @@
 import { z } from "zod";
 import { boundedJson, type Fetcher } from "./http";
-import type { Action, Decision } from "../domain";
+import type { Action, Decision, VerificationInput } from "../domain";
+/** Use the exact transaction snapshot that produced the decision, never a later record read. */
+export function decisionEvidence(input: VerificationInput, decision: Decision) {
+  const snapshots = [
+    { id: input.engagement.source.id, value: input.engagement },
+    { id: input.invoice.source.id, value: input.invoice },
+    { id: input.policy.id, value: input.policy },
+    ...input.acceptances.map((a) => ({ id: a.source.id, value: a })),
+    ...input.allocations.map((a) => ({ id: a.id, value: a })),
+  ];
+  const unique = new Map<string, unknown[]>();
+  for (const snapshot of snapshots) {
+    if (!decision.sourceIds.includes(snapshot.id)) continue;
+    unique.set(snapshot.id, [...(unique.get(snapshot.id) ?? []), snapshot.value]);
+  }
+  return [...unique].map(([id, values]) => ({ id, content: JSON.stringify(values) }));
+}
 export const proposalSchema = z
   .object({
     action: z.enum(["PAY", "SCHEDULE", "HOLD", "ASK", "PROPOSE_PARTIAL"]),

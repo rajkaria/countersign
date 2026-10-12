@@ -271,6 +271,26 @@ it("extends a continuous finalized owner baseline but stops for unknown external
     ),
   );
   expect(recovered.reconciled).toBe(true);
+  const duplicateEffect = await pg.transaction((tx) =>
+    persistStandingObservation(
+      tx as unknown as Database,
+      config,
+      { ...unknown, finalizedBlock: "104", transfers: [...unknown.transfers, { ...unknown.transfers[0], logIndex: 1 }] },
+      async () => true,
+    ),
+  );
+  expect(duplicateEffect.reconciled).toBe(false);
+  expect("reason" in duplicateEffect && duplicateEffect.reason).toMatch(/multiple|unique/i);
+  const imprecise = await pg.transaction((tx) =>
+    persistStandingObservation(
+      tx as unknown as Database,
+      config,
+      { ...unknown, finalizedBlock: "105", incrementalHistoryComplete: false },
+      async () => true,
+    ),
+  );
+  expect(imprecise.reconciled).toBe(false);
+  expect("reason" in imprecise && imprecise.reason).toMatch(/precision|incomplete/i);
 });
 it("persists a new executable covered decision while retaining the original conditional hold", async () => {
   const fixture = createDemoFixture();

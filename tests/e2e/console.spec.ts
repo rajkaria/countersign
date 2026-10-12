@@ -152,6 +152,13 @@ async function mockedWorkspace(
           remaining: "100000000",
         },
       });
+    if (path.endsWith("/agent-review"))
+      return send({
+        id: "fixture-proposal", decisionId: "fixture-decision", authority: "proposal-only", provider: "openai", model: "fixture-model", promptVersion: "countersign-evidence-v1", providerResponseId: "fixture-response", observedAt: "2026-10-13T00:00:00Z",
+        binding: { invoiceId, invoiceVersion: 1, engagementId: agreementId, engagementVersion: 3, policyVersion: 1, evaluatedAt: "2026-10-13T00:00:00Z", validUntil: "2026-10-13T00:05:00Z" },
+        proposal: { action: "ASK", reason: "Activity is present; authorized acceptance is missing.", sourceIds: [agreementId], missing: ["Has the current agreement version been accepted?"] },
+        evidence: [{ id: agreementId, content: JSON.stringify({ version: 3, title: "Original model snapshot" }) }],
+      });
     if (path.endsWith("/prepare")) {
       const body = request.postDataJSON();
       writes.push({ path, body });
@@ -287,6 +294,26 @@ test("console preserves versioned hourly terms and exact retry identities", asyn
   expect(proposals).toHaveLength(2);
   expect(proposals[0].body).toEqual(proposals[1].body);
   expect(proposals[0].body.requestedAmount).toBe("25000001");
+});
+
+test("evidence assistant exposes missing questions, provenance and stale binding, then clears on tenant switch", async ({ page }) => {
+  const mock = await mockedWorkspace(page);
+  await page.goto("/console");
+  await page.getByRole("button", { name: "Invoices", exact: true }).click();
+  await page.getByRole("button", { name: /INV-UTILITY/ }).click();
+  await page.getByRole("button", { name: "Ask evidence assistant" }).click();
+  const proposal = page.getByRole("region", { name: "Evidence assistant proposal" });
+  await expect(proposal).toContainText("Has the current agreement version been accepted?");
+  await expect(proposal).toContainText("fixture-response");
+  await expect(proposal).toContainText("Invoice v1 · terms v3 · policy v1");
+  await expect(proposal).toContainText("A proposal cannot approve");
+  await proposal.locator("summary").click();
+  await expect(proposal.locator("pre")).toContainText("Original model snapshot");
+  mock.getRecords().find((r) => r.id === invoiceId)!.version = 2;
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(proposal).toContainText("Records have changed since this proposal");
+  await page.getByLabel("Organization", { exact: true }).selectOption(otherOrg);
+  await expect(proposal).not.toBeVisible();
 });
 
 test("workspace switch clears private records and one-time keys; 204 logout succeeds", async ({

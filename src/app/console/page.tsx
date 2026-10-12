@@ -20,6 +20,7 @@ import { HistoryReconciliation } from "@/components/console/history-reconciliati
 import { PaymentActivity } from "@/components/console/payment-activity";
 import { WorkspaceAccess } from "@/components/console/workspace-access";
 import { RecordInspector } from "@/components/console/record-inspector";
+import { AgentProposal, type AgentProposalResult } from "@/components/console/agent-proposal";
 import {
   WorkspaceSetup,
   UnconfiguredWorkspace,
@@ -124,6 +125,7 @@ function ConsoleWorkspace() {
     invoiceId: string;
     result: Review;
   } | null>(null);
+  const [agentProposal, setAgentProposal] = useState<{ org: string; invoiceId: string; result: AgentProposalResult } | null>(null);
   const [secret, setSecret] = useState<{
     title: string;
     value: string;
@@ -321,6 +323,7 @@ function ConsoleWorkspace() {
       setForm("");
       setExtraction(null);
       setReview(null);
+      setAgentProposal(null);
       setSecret(null);
       setPlanPolicy("");
       setNotice("");
@@ -421,6 +424,7 @@ function ConsoleWorkspace() {
         .includes(search.toLowerCase()),
   );
   function openForm(kind: string, record: RecordRow | null = null) {
+    setAgentProposal(null);
     setSelected(record);
     if (record?.kind !== "invoice" || record.id !== invoiceBalance?.invoiceId)
       setInvoiceBalance(null);
@@ -1956,10 +1960,13 @@ function ConsoleWorkspace() {
                     className="button secondary"
                     onClick={() =>
                       action(async () => {
+                        const generation = requestGeneration.current;
                         const result = await call(
                           `/api/organizations/${org}/agent-review`,
                           { invoiceId: selected.id },
                         );
+                        if (orgRef.current !== org || generation !== requestGeneration.current) return;
+                        setAgentProposal({ org, invoiceId: selected.id, result });
                         setNotice(
                           `${result.proposal.action}: ${result.proposal.reason}`,
                         );
@@ -2034,6 +2041,9 @@ function ConsoleWorkspace() {
                 >
                   Create reviewed amendment
                 </button>
+              )}
+              {selected.kind === "invoice" && agentProposal?.org === org && agentProposal.invoiceId === selected.id && (
+                <AgentProposal result={agentProposal.result} invoice={selected} records={snapshot.records} onSelect={(record) => { setSelected(record); setReview(null); }} />
               )}
               {selected.kind === "case" && (
                 <button

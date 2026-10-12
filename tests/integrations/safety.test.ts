@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   CircleExecutor,
   type CircleConfig,
@@ -22,6 +22,7 @@ const config: CircleConfig = {
   compatibilityVerified: true,
   revocationVerified: true,
   securityReviewApproved: true,
+  deploymentEvidenceExpiresAt: "2030-01-01T00:00:00Z",
   executionEnabled: false,
 };
 const permit = {
@@ -50,6 +51,27 @@ const permit = {
   minFinalityThreshold: "0",
 };
 describe("fixed Circle execution boundary", () => {
+  it("refuses newly submitted work if deployment evidence expires during wallet discovery", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-13T00:00:00Z"));
+    const calls: string[][] = [];
+    try {
+      const executor = new CircleExecutor(
+        { ...config, executionEnabled: true, deploymentEvidenceExpiresAt: "2026-10-13T00:00:01Z" },
+        async (args) => {
+          calls.push(args);
+          vi.setSystemTime(new Date("2026-10-13T00:00:01Z"));
+          if (args.includes("list")) return { wallets: [{ type: "agent", address, blockchain: "ARC-TESTNET" }] };
+          return { id: "must-not-submit", state: "SENT" };
+        },
+      );
+      await expect(executor.submit({ tenantId: "org", operationId: "11111111-1111-4111-8111-111111111111", permit: modulePermitSchema.parse(permit), signature: "0x1234" })).rejects.toThrow(/Deployment evidence/);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toContain("list");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("never executes when release gates are disabled", async () => {
     let called = false;
     const executor = new CircleExecutor(config, async () => {

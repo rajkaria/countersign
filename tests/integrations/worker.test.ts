@@ -135,10 +135,13 @@ it("reconciles one financial effect and atomically closes the invoice after a pr
       JSON.stringify({ paymentId }),
     ],
   );
-  let submissions = 0;
+  let submissions = 0, preflights = 0;
   const deps: PaymentWorkerDependencies = {
     revalidate: async () => verifyObligation(createDemoFixture()),
-    preflight: async () => {},
+    preflight: async () => {
+      preflights++;
+      throw new Error("Deployment evidence is stale or future-dated");
+    },
     submit: async () => {
       submissions++;
       return { id: "new", state: "SENT" };
@@ -150,6 +153,7 @@ it("reconciles one financial effect and atomically closes the invoice after a pr
   await processPaymentJob(db, job!, deps);
   await processPaymentJob(db, job!, deps);
   expect(submissions).toBe(0);
+  expect(preflights).toBe(0);
   expect(
     (
       await database.query<{ state: string }>(

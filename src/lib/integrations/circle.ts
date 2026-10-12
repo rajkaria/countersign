@@ -22,6 +22,7 @@ export type CircleConfig = {
   compatibilityVerified: boolean;
   revocationVerified: boolean;
   securityReviewApproved: boolean;
+  deploymentEvidenceExpiresAt: string;
   executionEnabled: boolean;
 };
 export type CircleRequest = {
@@ -85,6 +86,12 @@ export class CircleExecutor {
       throw new Error(
         "Circle execution disabled: compatibility, recovery, and security gates must pass.",
       );
+    if (
+      execution &&
+      (!Number.isFinite(Date.parse(c.deploymentEvidenceExpiresAt)) ||
+        Date.parse(c.deploymentEvidenceExpiresAt) <= Date.now())
+    )
+      throw new Error("Deployment evidence is stale or unavailable; new submission is disabled.");
     if (
       request.tenantId !== c.tenantId ||
       p.chainId !== String(c.chainId) ||
@@ -168,6 +175,7 @@ export class CircleExecutor {
   async submit(request: CircleRequest) {
     this.validate(request, true);
     await this.checkAgentWallet();
+    this.validate(request, true);
     return transactionSchema.parse(await this.run(this.args(request)));
   }
   async lookup(providerId: string) {
@@ -217,6 +225,8 @@ export function circleConfigFromEnv(): CircleConfig {
     revocationVerified: process.env.CIRCLE_REVOCATION_VERIFIED === "true",
     securityReviewApproved:
       process.env.EXECUTION_SECURITY_REVIEW_APPROVED === "true",
+    // Execution workers replace this with the schema-checked reviewed manifest expiry.
+    deploymentEvidenceExpiresAt: "",
     executionEnabled: process.env.EXECUTION_ENABLED === "true",
   };
 }

@@ -2,7 +2,10 @@ import { createDemoFixture } from "./domain/fixtures";
 import { verifyObligation } from "./domain/verifier";
 import { transitionExecution, type Execution } from "./domain/execution";
 import { reserveCoverage } from "./domain/coverage";
-import { createReceipt } from "./domain/receipt";
+import { commitment, createReceipt } from "./domain/receipt";
+import { planCommitments } from "./domain/planner";
+import { validateProposal } from "./integrations/agent";
+import type { VerificationInput } from "./domain/types";
 export type InvoiceStatus = "ready" | "held" | "scheduled" | "settled";
 export type DemoInvoice = {
   id: string;
@@ -11,9 +14,10 @@ export type DemoInvoice = {
   reference: string;
   description: string;
   amountCents: number;
+  currency: "USD" | "USDC";
   due: string;
   status: InvoiceStatus;
-  issue: "none" | "acceptance" | "destination" | "duplicate";
+  issue: "none" | "acceptance" | "destination" | "duplicate" | "source";
   reason: string;
   version: number;
   history: string[];
@@ -26,6 +30,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "NS-1042",
     description: "Product design · September retainer",
     amountCents: 320000,
+    currency: "USDC",
     due: "2026-10-01",
     status: "held",
     issue: "acceptance",
@@ -45,6 +50,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "ORB-081",
     description: "Engineering · September retainer",
     amountCents: 480000,
+    currency: "USDC",
     due: "2026-10-02",
     status: "ready",
     issue: "none",
@@ -64,6 +70,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "FW-229",
     description: "Customer research · Sprint 12",
     amountCents: 175000,
+    currency: "USDC",
     due: "2026-10-04",
     status: "scheduled",
     issue: "none",
@@ -83,6 +90,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "MER-046",
     description: "Operations · September support",
     amountCents: 240000,
+    currency: "USDC",
     due: "2026-10-03",
     status: "held",
     issue: "destination",
@@ -102,6 +110,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "PS-039",
     description: "Security review · Phase one",
     amountCents: 210000,
+    currency: "USDC",
     due: "2026-09-26",
     status: "settled",
     issue: "none",
@@ -121,6 +130,7 @@ export const INITIAL_INVOICES: DemoInvoice[] = [
     reference: "NS-1042-R",
     description: "Product design · Resent invoice",
     amountCents: 320000,
+    currency: "USDC",
     due: "2026-10-01",
     status: "held",
     issue: "duplicate",
@@ -139,8 +149,19 @@ export const money = (cents: number) =>
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
   }).format(cents / 100);
+export const UNVERIFIED_SAMPLE_REASON =
+  "Source required: this custom invoice has no approved agreement, trusted destination, or authorized acceptance. It remains on hold. No money can move in this sandbox.";
+export const isDemoFixture = (invoice: DemoInvoice) =>
+  INITIAL_INVOICES.some((sample) => sample.id === invoice.id);
+export const invoiceMoney = (invoice: DemoInvoice) =>
+  invoice.currency === "USD"
+    ? money(invoice.amountCents)
+    : new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(invoice.amountCents / 100);
 export function parseInvoiceInput(input: {
   vendor: string;
   reference: string;
@@ -177,19 +198,23 @@ export function parseInvoiceInput(input: {
       .slice(0, 2)
       .toUpperCase(),
     reference: input.reference.trim(),
-    description: "Imported sample · Acceptance needed",
+    description: "Custom sample · Source required",
     amountCents,
+    currency: "USD",
     due: input.due,
     status: "held",
-    issue: "acceptance",
-    reason:
-      "New sample invoice requires an approved engagement and authorized acceptance. No money can move in this sandbox.",
+    issue: "source",
+    reason: UNVERIFIED_SAMPLE_REASON,
     version: 1,
-    history: ["Sample invoice added", "Held: acceptance required"],
+    history: ["Custom sample invoice added", "Held: approved sources required"],
   };
 }
 export function resolveAcceptance(invoice: DemoInvoice): DemoInvoice {
-  if (invoice.issue !== "acceptance" || invoice.status !== "held")
+  if (
+    !isDemoFixture(invoice) ||
+    invoice.issue !== "acceptance" ||
+    invoice.status !== "held"
+  )
     throw new Error("This exception requires a different resolution.");
   return {
     ...invoice,
@@ -205,28 +230,61 @@ export function resolveAcceptance(invoice: DemoInvoice): DemoInvoice {
     ],
   };
 }
-export function planPayments(invoices: DemoInvoice[], availableCents: number) {
-  let remaining = availableCents;
-  return invoices
-    .filter((i) => i.status === "ready" || i.status === "scheduled")
-    .sort((a, b) => a.due.localeCompare(b.due))
-    .map((i) => {
-      const funded = i.amountCents <= remaining;
-      if (funded) remaining -= i.amountCents;
-      return { ...i, funded, remainingCents: remaining };
-    });
+export function planPayments(
+  invoices: DemoInvoice[],
+  availableCents = 1050000,
+) {
+  if (!Number.isSafeInteger(availableCents) || availableCents < 0)
+    throw new Error("Demo cash must be nonnegative whole cents.");
+  const input = {
+    confirmedCash: ((BigInt(availableCents) + 800000n) * 10000n).toString(),
+    operatingReserve: "8000000000",
+    protectedReserve: "0",
+    pendingReserve: "0",
+    expectedInflows: "4000000000",
+    now: createDemoFixture().now,
+    items: invoices
+      .filter((invoice) => invoice.status !== "settled")
+      .map((invoice) => ({
+        id: invoice.id,
+        // Other denominations are displayed as held, never compared to USDC cash.
+        amount:
+          invoice.currency === "USDC"
+            ? (BigInt(invoice.amountCents) * 10000n).toString()
+            : "0",
+        fee: "0",
+        dueAt: `${invoice.due}T23:59:59Z`,
+        priority: 1,
+        eligible:
+          isDemoFixture(invoice) &&
+          invoice.currency === "USDC" &&
+          getDemoReview(invoice).decision.action === "PAY" &&
+          ["ready", "scheduled"].includes(invoice.status),
+        allowEarly: false,
+      })),
+  };
+  const result = planCommitments(input);
+  return {
+    ...result,
+    input,
+    items: result.items.map((item) => ({
+      ...item,
+      invoice: invoices.find((invoice) => invoice.id === item.id)!,
+    })),
+  };
 }
 export function toCsv(invoices: DemoInvoice[]) {
   const escape = (value: string) =>
     `"${(/^[=+\-@\t\r]/.test(value) ? "'" : "") + value.replaceAll('"', '""')}"`;
   return [
-    "Invoice,Vendor,Description,Amount USD,Due,Status,Environment",
+    "Invoice,Vendor,Description,Amount,Currency,Due,Status,Environment",
     ...invoices.map((i) =>
       [
         i.reference,
         i.vendor,
         i.description,
         (i.amountCents / 100).toFixed(2),
+        i.currency,
         i.due,
         i.status,
         "synthetic sandbox",
@@ -245,7 +303,7 @@ export function runRecoveryScenario(id: string): string {
     tenantId: "demo-org",
     state: "submitted",
     sourceChainId: 5042002,
-    destinationChainId: 8453,
+    destinationChainId: id === "timeout" ? 5042002 : 8453,
     recipient: "0x1111111111111111111111111111111111111111",
     asset: "USDC",
     amount: "800000000",
@@ -325,8 +383,9 @@ export function runRecoveryScenario(id: string): string {
   throw new Error("Unknown recovery scenario");
 }
 
-/** Production receipt schema with explicitly synthetic identities; never asserts settlement. */
-export function createDemoReceipt(invoice: DemoInvoice) {
+/** Inspectable fictional sources and the real verifier; the proposal is an authored recorded fixture, not a provider response. */
+export function getDemoReview(invoice: DemoInvoice) {
+  const approvedTerms = isDemoFixture(invoice);
   const scenario =
     invoice.issue === "acceptance"
       ? "missing-acceptance"
@@ -338,20 +397,104 @@ export function createDemoReceipt(invoice: DemoInvoice) {
   const base = createDemoFixture(scenario);
   const amount = (BigInt(invoice.amountCents) * 10000n).toString();
   const ceiling = (BigInt(amount) * 4n).toString();
-  const fixture = {
+  const group = invoice.vendor.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const engagementId = `synthetic-agreement-${group}`;
+  const vendorId = `synthetic-vendor-${group}`;
+  const obligationId = `synthetic-obligation-${group}`;
+  const sourceId = (kind: string) => `${invoice.id}-${kind}`;
+  const sources = [
+    ...(approvedTerms
+      ? [
+          {
+            id: sourceId("agreement"),
+            title: "Fictional approved agreement",
+            location: "Section 2 · terms and acceptance",
+            content: `Fictional agreement v2. ${invoice.vendor}: ${invoice.description}. Amount: ${invoiceMoney(invoice)} ${invoice.currency}. The named customer acceptor owner-1 must confirm the current obligation before release. Activity is evidence of progress, not acceptance. The fictional approved destination is ${base.engagement.destinations[0].address}.`,
+          },
+        ]
+      : []),
+    {
+      id: sourceId("invoice"),
+      title: "Synthetic received invoice",
+      location: "Reference, total and due date",
+      content: `${invoice.reference}. ${invoice.vendor}. Total: ${invoiceMoney(invoice)} ${invoice.currency}. Due: ${invoice.due}. ${approvedTerms ? `Claimed destination: ${base.invoice.destination.address}.` : "No original document, billing period or destination was supplied. These typed fields are unverified."}`,
+    },
+    ...(approvedTerms
+      ? [
+          {
+            id: sourceId(
+              invoice.issue === "acceptance" ? "activity" : "acceptance",
+            ),
+            title:
+              invoice.issue === "acceptance"
+                ? "Fictional delivery activity"
+                : "Fictional customer acceptance",
+            location:
+              invoice.issue === "acceptance"
+                ? "Delivery handoff note"
+                : "Current obligation approval",
+            content:
+              invoice.issue === "acceptance"
+                ? "The design handoff was merged and delivered. This activity note has no statement of acceptance by the named customer acceptor. Activity is evidence of progress; acceptance is still missing."
+                : "Fictional customer acceptor owner-1 confirmed the current obligation against approved agreement v2. This is a sample approval, not real customer evidence.",
+          },
+        ]
+      : []),
+  ];
+  const ref = (kind: string) => {
+    const source = sources.find((item) => item.id === sourceId(kind));
+    return {
+      id: sourceId(kind),
+      uri: `fixture://${sourceId(kind)}`,
+      location: source?.location ?? "Source required",
+      hash: commitment({
+        content: source?.content ?? "No approved source supplied",
+      }).slice(2),
+      observedAt: base.now,
+    };
+  };
+  const input: VerificationInput = {
     ...base,
     engagement: {
       ...base.engagement,
+      id: engagementId,
+      vendorId,
+      version: 2,
+      status: approvedTerms ? "active" : "draft",
+      approvedBy: approvedTerms ? "owner-1" : "",
+      authorizedAcceptors: approvedTerms
+        ? base.engagement.authorizedAcceptors
+        : [],
+      destinations: approvedTerms ? base.engagement.destinations : [],
+      currency: invoice.currency,
       amount,
       commitmentCeiling: ceiling,
       mode: "observe" as const,
+      source: ref("agreement"),
     },
     invoice: {
       ...base.invoice,
       id: invoice.id,
+      vendorId,
+      engagementId,
+      engagementVersion: 2,
+      obligationId,
       reference: invoice.reference,
       version: invoice.version,
       amount,
+      currency: invoice.currency,
+      description: invoice.description,
+      dueAt: `${invoice.due}T23:59:59Z`,
+      destination: approvedTerms
+        ? base.invoice.destination
+        : {
+            ...base.invoice.destination,
+            chainId: 0,
+            address: "0x0000000000000000000000000000000000000000",
+            version: 0,
+            verifiedBy: "",
+          },
+      source: ref("invoice"),
     },
     policy: {
       ...base.policy,
@@ -359,29 +502,86 @@ export function createDemoReceipt(invoice: DemoInvoice) {
       remainingDelegation: ceiling,
       rolling24hRemaining: ceiling,
     },
-    allocations: base.allocations.map((a) => ({ ...a, amount })),
+    acceptances: approvedTerms
+      ? base.acceptances.map((acceptance) => ({
+          ...acceptance,
+          engagementId,
+          engagementVersion: 2,
+          obligationId,
+          source: ref(
+            invoice.issue === "acceptance" ? "activity" : "acceptance",
+          ),
+        }))
+      : [],
+    allocations: base.allocations.map((a) => ({
+      ...a,
+      engagementId,
+      obligationId,
+      amount,
+    })),
   };
-  const checked = verifyObligation(fixture);
+  const decision = verifyObligation(input);
+  const modelFixture = approvedTerms
+    ? {
+        kind: "recorded-fixture" as const,
+        modelExecuted: false as const,
+        authority: "proposal-only" as const,
+        proposal: validateProposal(
+          {
+            action: decision.action,
+            reason:
+              invoice.issue === "acceptance"
+                ? "The handoff describes completed activity. The agreement separately requires customer acceptance; the activity note cannot supply that approval. Ask the named acceptor a precise question before preparing payment."
+                : decision.reason,
+            sourceIds: sources.map((source) => source.id),
+            missing:
+              invoice.issue === "acceptance"
+                ? [
+                    `Does the named customer acceptor accept the ${invoice.description} obligation against agreement v2?`,
+                  ]
+                : decision.action === "HOLD"
+                  ? [decision.nextCheck]
+                  : [],
+          },
+          {
+            allowedActions: decision.availableActions,
+            sourceIds: decision.sourceIds,
+          },
+        ),
+      }
+    : null;
+  return { approvedTerms, input, sources, decision, modelFixture };
+}
+
+/** Production receipt schema with explicitly synthetic identities; never asserts settlement. */
+export function createDemoReceipt(invoice: DemoInvoice) {
+  if (!isDemoFixture(invoice))
+    throw new Error(
+      "Approved source evidence is required before exporting a decision receipt.",
+    );
+  const review = getDemoReview(invoice);
   const decision = {
-    ...checked,
-    reason: `SYNTHETIC SANDBOX. No payment or chain settlement is asserted. ${checked.reason}`,
+    ...review.decision,
+    reason: `SYNTHETIC SANDBOX. No payment or chain settlement is asserted. ${review.decision.reason}`,
   };
   return createReceipt({
     id: `synthetic-${invoice.id}-v${invoice.version}`,
     decision,
     permit: {
       paymentId: `synthetic-operation-${invoice.id}`,
-      recipient: base.engagement.destinations[0].address,
-      amount,
+      recipient: review.input.engagement.destinations[0].address,
+      amount: decision.amount,
       sourceChainId: 5042002,
-      destinationChainId: 8453,
+      destinationChainId: review.input.invoice.destination.chainId,
       asset: "USDC",
       policyVersion: decision.policyVersion,
       engagementVersion: decision.engagementVersion,
       expiresAt: decision.validUntil,
     },
     settlement: null,
-    evidenceCommitments: [],
-    createdAt: base.now,
+    evidenceCommitments: review.sources.map((source) =>
+      commitment({ content: source.content }),
+    ),
+    createdAt: review.input.now,
   });
 }

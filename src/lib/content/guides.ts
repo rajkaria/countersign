@@ -17,6 +17,13 @@ export type Guide = {
 };
 export const guides: Guide[] = [
   {
+    slug: "reviewer-guide",
+    title: "Review Countersign",
+    file: "reviewer-guide.md",
+    group: "Start here",
+    description: "A reproducible product walkthrough, source map and exact evidence boundaries.",
+  },
+  {
     slug: "getting-started",
     title: "Getting started",
     file: "getting-started.md",

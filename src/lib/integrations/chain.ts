@@ -23,6 +23,11 @@ const tokenAbi = parseAbi([
 const transferEvent = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 );
+const ARC_USDC = "0x3600000000000000000000000000000000000000";
+const ARC_USDC_SYSTEM_EMITTER = "0xfffffffffffffffffffffffffffffffffffffffe" as Address;
+// Official arc-node v0.7.1 activation: pre-Zero5 testnet used different native events.
+const ARC_TESTNET_ZERO5_TIMESTAMP = 1779894517n;
+const ARC_NATIVE_TO_ERC20_SCALE = 10n ** 12n;
 export function chainClient(rpcUrl: string) {
   const url = new URL(rpcUrl);
   if (!["https:", "http:"].includes(url.protocol))
@@ -42,6 +47,7 @@ export async function readSafe(input: {
   const client = chainClient(input.rpcUrl);
   const actual = await client.getChainId();
   if (actual !== input.chainId) throw new Error("RPC chain mismatch");
+  const arcUsdc = [5042, 5042002].includes(actual) && input.token.toLowerCase() === ARC_USDC;
   const block = await client.getBlock({ blockTag: "finalized" });
   if (block.number === null) throw new Error("Finalized block unavailable");
   const common = {
@@ -97,22 +103,64 @@ export async function readSafe(input: {
     block.number > BigInt(historyBlocks)
       ? block.number - BigInt(historyBlocks)
       : 0n;
+  if (arcUsdc) {
+    if (decimals !== 6) throw new Error("Arc USDC ERC20 interface must have 6 decimals");
+    if (actual === 5042002) {
+      const first = await client.getBlock({ blockNumber: start });
+      if (first.timestamp < ARC_TESTNET_ZERO5_TIMESTAMP)
+        throw new Error("Arc testnet historical native events require independent historical reconciliation; select a post-Zero5 observation window.");
+    }
+  }
+  // Arc's system stream includes native sends and ERC20 interface movements once.
+  // Reading both streams would double-count ERC20 transfers and still miss native-only sends in an ERC20-only scan.
+  const emitter = arcUsdc ? ARC_USDC_SYSTEM_EMITTER : input.token;
   const [outgoing, incoming] = await Promise.all([
     client.getLogs({
-      address: input.token,
+      address: emitter,
       event: transferEvent,
       args: { from: input.safe },
       fromBlock: start,
       toBlock: block.number,
     }),
     client.getLogs({
-      address: input.token,
+      address: emitter,
       event: transferEvent,
       args: { to: input.safe },
       fromBlock: start,
       toBlock: block.number,
     }),
   ]);
+  let incrementalHistoryComplete = true;
+  const transfers = [...new Map(
+    [...outgoing, ...incoming].map((log) => [`${log.transactionHash}:${log.logIndex}`, log] as const),
+  ).values()].map((log) => {
+    const { from, to, value } = log.args;
+    if (
+      log.address.toLowerCase() !== emitter.toLowerCase() || log.removed ||
+      !log.transactionHash || !/^0x[0-9a-fA-F]{64}$/.test(log.transactionHash) ||
+      log.logIndex === null || !Number.isInteger(log.logIndex) || log.logIndex < 0 ||
+      log.blockNumber === null || log.blockNumber < start || log.blockNumber > block.number! ||
+      !from || !to || !/^0x[0-9a-fA-F]{40}$/.test(from) || !/^0x[0-9a-fA-F]{40}$/.test(to) ||
+      typeof value !== "bigint" || value < 0n ||
+      (from.toLowerCase() !== input.safe.toLowerCase() && to.toLowerCase() !== input.safe.toLowerCase())
+    ) throw new Error("Invalid or non-finalized transfer history; reconcile before automation.");
+    const debit = from.toLowerCase() === input.safe.toLowerCase();
+    const fractional = arcUsdc && value % ARC_NATIVE_TO_ERC20_SCALE !== 0n;
+    // A rounded native debit must never automatically match an exact Countersign principal.
+    if (fractional && debit) incrementalHistoryComplete = false;
+    const amount = arcUsdc
+      ? (value + (debit ? ARC_NATIVE_TO_ERC20_SCALE - 1n : 0n)) / ARC_NATIVE_TO_ERC20_SCALE
+      : value;
+    return {
+      transactionHash: log.transactionHash,
+      logIndex: log.logIndex,
+      from,
+      to,
+      amount: amount.toString(),
+      block: log.blockNumber.toString(),
+      ...(arcUsdc ? { nativeAmount: value.toString(), nativeDecimals: 18, amountRounding: fractional ? debit ? "up" : "down" : "exact" } : {}),
+    };
+  });
   return {
     safe: input.safe,
     chainId: actual,
@@ -127,23 +175,15 @@ export async function readSafe(input: {
     finalizedBlockHash: block.hash,
     historyFrom: start.toString(),
     historyComplete: false,
-    transfers: [
-      ...new Map(
-        [...outgoing, ...incoming].map(
-          (log) => [`${log.transactionHash}:${log.logIndex}`, log] as const,
-        ),
-      ).values(),
-    ].map((log) => ({
-      transactionHash: log.transactionHash,
-      logIndex: log.logIndex,
-      from: log.args.from,
-      to: log.args.to,
-      amount: log.args.value?.toString(),
-      block: log.blockNumber?.toString(),
-    })),
+    incrementalHistoryComplete,
+    transfers,
     limitations: [
       "Bounded finalized transfer history; reconcile earlier statements before automation.",
       "Safe-like ABI observation is not independent contract bytecode verification.",
+      ...(arcUsdc ? [
+        "Arc native/system USDC transfers retain 18-decimal amounts; outgoing principal units round up and incoming units round down to the 6-decimal ERC20 view. Fractional outgoing transfers require independent reconciliation.",
+        "Arc gas fees and block rewards are not Transfer logs; reconcile fees from transaction receipts and native balance statements. The ERC20 balance is a conservative truncated view.",
+      ] : []),
     ],
   };
 }

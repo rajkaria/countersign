@@ -475,6 +475,7 @@ const observationSchema = z
     finalizedBlock: z.string().regex(/^(0|[1-9]\d*)$/),
     finalizedBlockHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
     historyFrom: z.string().regex(/^(0|[1-9]\d*)$/),
+    incrementalHistoryComplete: z.boolean().optional(),
     transfers: z.array(transferSchema).max(20000),
   })
   .passthrough();
@@ -533,6 +534,8 @@ export async function persistStandingObservation(
     reconciled: false,
     reason,
   });
+  if (observation.incrementalHistoryComplete === false)
+    return held("Incremental transfer history is incomplete or loses native amount precision; independent owner reconciliation is required.");
   if (!previous)
     return held(
       "Initial historical statements and owner reconciliation are required.",
@@ -591,6 +594,7 @@ export async function persistStandingObservation(
     )
   ).rows;
   const classifications: Array<Record<string, unknown>> = [];
+  const matchedPayments = new Set<string>();
   for (const transfer of outgoing) {
     const old = oldTransfers.find((t) => key(t) === key(transfer)),
       classification = oldClassifications.find(
@@ -606,6 +610,12 @@ export async function persistStandingObservation(
       old.to.toLowerCase() === transfer.to.toLowerCase() &&
       old.from.toLowerCase() === transfer.from.toLowerCase()
     ) {
+      if (classification.classification === "countersign") {
+        const paymentId = String(classification.paymentId);
+        if (matchedPayments.has(paymentId))
+          return held("Multiple outgoing transfers cannot match one uniquely confirmed operation.");
+        matchedPayments.add(paymentId);
+      }
       classifications.push(classification);
       continue;
     }
@@ -627,6 +637,9 @@ export async function persistStandingObservation(
       return held(
         "New outgoing transfer has no unique independently confirmed operation match.",
       );
+    if (matchedPayments.has(matches[0].id))
+      return held("Multiple outgoing transfers cannot match one uniquely confirmed operation.");
+    matchedPayments.add(matches[0].id);
     classifications.push({
       transactionHash: transfer.transactionHash,
       logIndex: transfer.logIndex,

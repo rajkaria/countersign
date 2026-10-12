@@ -22,6 +22,7 @@ export function SiteHeader() {
         <Link href="/#workflow">How it works</Link>
         <Link href="/#control">Your control</Link>
         <Link href="/docs">Documentation</Link>
+        <Link href="/review">Product walkthrough</Link>
       </nav>
       <Link href="/workspace" className="button button-small">
         Explore the demo <span aria-hidden="true">↗</span>
@@ -40,6 +41,7 @@ export function SiteFooter() {
         <Link href="/docs">Documentation</Link>
         <Link href="/docs/security">Security & control</Link>
         <Link href="/docs/getting-started">Get started</Link>
+        <Link href="/review">Product walkthrough</Link>
       </div>
       <span>© {new Date().getFullYear()} Countersign</span>
     </footer>

@@ -35,26 +35,41 @@ export const deploymentManifestSchema = z
   })
   .strict();
 export type DeploymentManifest = z.infer<typeof deploymentManifestSchema>;
+/** Recheck cached evidence whenever new work is authorized or submitted. Expiry never erases existing operations. */
+function assertManifestDates(m: DeploymentManifest, purpose: "execution" | "reconciliation") {
+  const now = Date.now();
+  const expires = Date.parse(m.expiresAt),
+    verified = Date.parse(m.verifiedAt),
+    approved = Date.parse(m.securityReview.approvedAt);
+  if (
+    ![expires, verified, approved].every(Number.isFinite) ||
+    (purpose === "execution" && expires <= now) ||
+    verified > now ||
+    approved > now
+  )
+    throw new Error("Deployment evidence is stale or future-dated");
+}
+export function assertCurrentDeploymentManifest(m: DeploymentManifest) {
+  assertManifestDates(m, "execution");
+}
 /** A manifest is an operator-approved evidence bundle, not a self-certifying audit. Verify current bytecode/chain separately. */
-export async function loadDeploymentManifest(): Promise<DeploymentManifest | null> {
+export async function loadDeploymentManifest(options: { purpose?: "execution" | "reconciliation" } = {}): Promise<DeploymentManifest | null> {
   const path = process.env.EXECUTION_MANIFEST_PATH;
   const inline = process.env.EXECUTION_MANIFEST_JSON;
   if (!path && !inline) return null;
   const raw = inline ?? (await readFile(path!, "utf8"));
   if (raw.length > 64_000) throw new Error("Deployment manifest too large");
   const m = deploymentManifestSchema.parse(JSON.parse(raw));
-  if (
-    Date.parse(m.expiresAt) <= Date.now() ||
-    Date.parse(m.verifiedAt) > Date.now() ||
-    Date.parse(m.securityReview.approvedAt) > Date.now()
-  )
-    throw new Error("Deployment evidence is stale or future-dated");
+  assertManifestDates(m, options.purpose ?? "execution");
   return m;
 }
 export async function verifyDeploymentManifest(
   m: DeploymentManifest,
   rpcUrl: string,
+  options: { purpose?: "execution" | "reconciliation" } = {},
 ) {
+  const purpose = options.purpose ?? "execution";
+  assertManifestDates(m, purpose);
   const client = chainClient(rpcUrl);
   if ((await client.getChainId()) !== m.chainId)
     throw new Error("Manifest chain does not match RPC");
@@ -79,10 +94,12 @@ export async function verifyDeploymentManifest(
     throw new Error(
       "Deployment bytecode or finalized evidence does not match manifest",
     );
+  assertManifestDates(m, purpose);
   return {
     verified: true,
     limitations: [
       "Transaction success does not by itself establish all compatibility/revocation semantics; review the recorded test evidence.",
+      ...(purpose === "reconciliation" ? ["Identity evidence is for reconciling existing operations only; every new authorization and submission still requires unexpired execution evidence."] : []),
     ],
   };
 }

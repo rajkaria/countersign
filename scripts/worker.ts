@@ -20,6 +20,7 @@ import {
 import {
   loadDeploymentManifest,
   verifyDeploymentManifest,
+  assertCurrentDeploymentManifest,
 } from "../src/lib/integrations/manifest";
 import { modulePermitSchema } from "../src/lib/integrations/module";
 import { verifyReservedCoverage } from "../src/lib/integrations/coverage";
@@ -33,10 +34,12 @@ import type { Address, Hex } from "viem";
 async function main() {
   const rpc = process.env.SOURCE_RPC_URL || process.env.ARC_RPC_URL;
   if (!rpc) throw new Error("SOURCE_RPC_URL is required.");
-  const manifest = await loadDeploymentManifest();
+  // Expired review must not strand an existing uncertain operation after a restart.
+  // New work still uses the strict verifier/preflight and Circle submission expiry checks below.
+  const manifest = await loadDeploymentManifest({ purpose: "reconciliation" });
   if (!manifest)
     throw new Error("Reviewed EXECUTION_MANIFEST_PATH is required.");
-  await verifyDeploymentManifest(manifest, rpc);
+  await verifyDeploymentManifest(manifest, rpc, { purpose: "reconciliation" });
   const config = {
     ...circleConfigFromEnv(),
     wallet: manifest.circleWallet,
@@ -49,6 +52,7 @@ async function main() {
     compatibilityVerified: true,
     revocationVerified: true,
     securityReviewApproved: true,
+    deploymentEvidenceExpiresAt: manifest.expiresAt,
   };
   const circle = new CircleExecutor(config);
   let stopped = false;
@@ -182,6 +186,7 @@ async function main() {
               permit,
               executor: manifest.circleWallet as Address,
             });
+            assertCurrentDeploymentManifest(manifest);
           },
           submit: (request) => circle.submit(request),
           lookup: (id) => circle.lookup(id),

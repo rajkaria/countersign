@@ -6,7 +6,13 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
-Version 0.3.0 adds owner-visible setup, exact schema readiness, a priority operations queue, scoped recovery links, readable precise reminders and a private pilot measurement kit. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization. Without configured infrastructure the console links to the owner setup guide.
+Version 0.4.0 adds a reproducible reviewer walkthrough, inspectable proposal citations/provenance, production-planner parity in the synthetic demo and persistent-worker expiry/Arc observation checks. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
+
+## Review in three minutes
+
+Start at [the working walkthrough](https://countersign-jet.vercel.app/review): activity versus acceptance, fresh authority after corrections, exact partial allocations, renamed duplicates and operation-preserving timeout recovery. Each case runs production reducers against explicitly synthetic inputs. Inspect or download the full input/output trace, then open [the source and evidence guide](docs/reviewer-guide.md). No wallet is required.
+
+Circle Agent Stack integration is implemented behind reviewed deployment gates. Actual wallet compatibility, delivered USDC, live model quality and real business usage remain unproven. The source remains private pending the owner's public-source/license decision. See [current facts](docs/FACTS.md) and [product vision](VISION.md).
 
 Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. No model, notice or payment request is made by the kit. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
 
@@ -80,7 +86,7 @@ The implementation uses Next.js, TypeScript, PostgreSQL, viem, Circle CLI integr
 
 ## Public handbook and machine-readable documentation
 
-The handbook at `/docs` contains 31 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
+The handbook at `/docs` contains 32 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
 
 - `/llms.txt` is the discovery index, with descriptions and absolute Markdown links.
 - `/llms-full.txt` contains the complete public handbook, with source URLs and availability boundaries.
