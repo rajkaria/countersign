@@ -3,6 +3,7 @@ contracts/out
 contracts/cache
 contracts/test
 node_modules
+worker-runtime
 .ocean
 internal
 test-results
