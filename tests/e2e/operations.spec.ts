@@ -11,7 +11,17 @@ test("isolated operations desk supports exception work, reminder preferences and
     page.getByRole("heading", { name: "Every obligation. A clear next step." }),
   ).toBeVisible();
   await expect(page.locator(".sandbox-banner")).toBeVisible();
+  const queue = page.getByRole("region", { name: "Priority review queue" });
+  await expect(queue).toBeVisible();
+  await expect(
+    queue.getByRole("link", { name: "Review exception and evidence" }),
+  ).toHaveAttribute("href", "#ops-case-sample-case");
   await page.getByRole("button", { name: "Assign or resolve" }).click();
+  await expect(page.getByLabel("Resolve by (UTC)")).toHaveAttribute(
+    "type",
+    "datetime-local",
+  );
+  await page.getByLabel("Resolve by (UTC)").fill("2026-10-18T15:30");
   await page
     .getByRole("combobox", { name: "Priority", exact: true })
     .selectOption("urgent");
@@ -27,6 +37,9 @@ test("isolated operations desk supports exception work, reminder preferences and
   await expect(page.locator(".ops-notice")).toContainText(
     "does not authorize payment",
   );
+  await expect(page.locator(".ops-cases .ops-case")).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Show cases" }).selectOption("all");
+  await expect(page.locator(".ops-case")).toContainText("2026-10-18 15:30 UTC");
   await page
     .getByText("Notification & escalation preferences", { exact: true })
     .click();

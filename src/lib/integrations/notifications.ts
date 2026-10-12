@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { boundedJson, type Fetcher } from "./http";
+import { consoleReviewHref, noticeReviewsSchema } from "../console-review";
 const notice = z
   .object({
     organizationId: z.uuid(),
@@ -11,6 +12,7 @@ const notice = z
       "coverage_capacity",
     ]),
     summary: z.string().min(1).max(500),
+    reviews: noticeReviewsSchema.optional(),
   })
   .strict();
 /** Explicit operator-configured notification adapter. It never signs or approves a payment. */
@@ -36,6 +38,14 @@ export async function notifyOperator(
   const origin = new URL(config.appOrigin);
   if (origin.protocol !== "https:")
     throw new Error("Notification links require HTTPS");
+  const links = event.reviews?.length
+    ? event.reviews
+        .map(
+          ({ label, ...review }) =>
+            `Review ${label}: ${origin.origin}${consoleReviewHref(event.organizationId, review)}`,
+        )
+        .join("\n")
+    : `Review in your authenticated workspace: ${origin.origin}${consoleReviewHref(event.organizationId, { view: "operations" })}`;
   const response = await fetcher(
     `https://api.telegram.org/bot${config.botToken}/sendMessage`,
     {
@@ -43,7 +53,7 @@ export async function notifyOperator(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: config.chatId,
-        text: `Countersign: ${event.kind.replaceAll("_", " ")}\n${event.summary}\n\nReview in your authenticated workspace: ${origin.origin}/console\nEvent ${event.eventId}`,
+        text: `Countersign: ${event.kind.replaceAll("_", " ")}\n${event.summary}\n\n${links}\nEvent ${event.eventId}`,
         link_preview_options: { is_disabled: true },
       }),
       redirect: "error",

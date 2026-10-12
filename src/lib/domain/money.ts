@@ -29,6 +29,11 @@ export function formatUnits(value: bigint | string, decimals = 6): string {
   const fraction = padded.slice(-decimals).replace(/0+$/, "");
   return padded.slice(0, -decimals) + (fraction ? "." + fraction : "");
 }
+/** Workspace obligation records use six decimal places in both USD and USDC; this formats, never converts. */
+export function formatObligationAmount(value: string, currency: string) {
+  const [whole, fraction = ""] = formatUnits(value, 6).split(".");
+  return `${BigInt(whole).toLocaleString("en-US")}.${fraction.padEnd(2, "0")} ${currency}`;
+}
 export function timestamp(value: string): number {
   const result = Date.parse(value);
   if (!Number.isFinite(result) || !/^\d{4}-\d{2}-\d{2}T/.test(value))

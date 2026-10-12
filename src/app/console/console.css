@@ -382,3 +382,11 @@
     flex-shrink: 0;
   }
 }
+.console-related-sources {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}

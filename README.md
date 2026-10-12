@@ -6,6 +6,10 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
+Version 0.3.0 adds owner-visible setup, exact schema readiness, a priority operations queue, scoped recovery links, readable precise reminders and a private pilot measurement kit. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization. Without configured infrastructure the console links to the owner setup guide.
+
+Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. No model, notice or payment request is made by the kit. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
+
 [Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
 
 The operating desk combines due dates, settled and committed balances, exception owners, reminder preferences and accounting period exports. Hourly agreements, versioned invoice corrections and exact partial-payment requests are available through the authenticated console. Optional agreement/invoice extraction stays proposal-only and links to the complete original.

@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpRight,
   Plus,
@@ -20,6 +20,16 @@ import { HistoryReconciliation } from "@/components/console/history-reconciliati
 import { PaymentActivity } from "@/components/console/payment-activity";
 import { WorkspaceAccess } from "@/components/console/workspace-access";
 import { RecordInspector } from "@/components/console/record-inspector";
+import {
+  WorkspaceSetup,
+  UnconfiguredWorkspace,
+} from "@/components/console/workspace-setup";
+import {
+  consoleTarget,
+  resolveConsoleTarget,
+  hydrateConsoleTarget,
+  type ConsoleTarget,
+} from "@/components/console/navigation";
 import {
   formatAmount as money,
   toAtomic as atomic,
@@ -66,12 +76,31 @@ type Review = {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 export default function Console() {
+  return (
+    <Suspense
+      fallback={
+        <main className="live-content">
+          <p role="status">Opening your workspace…</p>
+        </main>
+      }
+    >
+      <ConsoleWorkspace />
+    </Suspense>
+  );
+}
+function ConsoleWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = searchParams.toString();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const orgRef = useRef("");
   const requestGeneration = useRef(0);
   const operationBusy = useRef(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const linkedTargetRef = useRef<ConsoleTarget | null>(null);
+  const activeTargetRef = useRef<ConsoleTarget | null>(null);
+  const [linkedPayment, setLinkedPayment] = useState<string | undefined>();
+  const [linkError, setLinkError] = useState("");
   const [snapshotOrg, setSnapshotOrg] = useState("");
   const [search, setSearch] = useState("");
   const [planPolicy, setPlanPolicy] = useState("");
@@ -166,13 +195,30 @@ export default function Console() {
   const load = useCallback(
     async (orgId: string) => {
       const generation = ++requestGeneration.current;
-      const [snap, docs, intake] = await Promise.all([
+      const [loadedSnapshot, docs, intake] = await Promise.all([
         call(`/api/organizations/${orgId}/snapshot`),
         call(`/api/organizations/${orgId}/documents`),
         call(`/api/organizations/${orgId}/intake-events`),
       ]);
       if (orgRef.current !== orgId || generation !== requestGeneration.current)
         return;
+      let snap = loadedSnapshot;
+      const pendingTarget = linkedTargetRef.current ?? activeTargetRef.current;
+      if (pendingTarget?.org === orgId) {
+        const context = await hydrateConsoleTarget(
+          pendingTarget,
+          snap,
+          (kind, id) =>
+            call(`/api/organizations/${orgId}/records/${kind}/${id}`),
+          (id) => call(`/api/organizations/${orgId}/payments/${id}`),
+        );
+        if (
+          orgRef.current !== orgId ||
+          generation !== requestGeneration.current
+        )
+          return;
+        snap = { ...snap, ...context };
+      }
       setSnapshot(snap);
       setDocuments(docs);
       setForwarded(intake);
@@ -184,6 +230,37 @@ export default function Console() {
             ) ?? null)
           : null,
       );
+      const target = linkedTargetRef.current;
+      if (target && target.org === orgId) {
+        linkedTargetRef.current = null;
+        try {
+          if (target.view === "setup" && snap.role !== "owner")
+            throw new Error(
+              "Workspace infrastructure setup is available to the current owner.",
+            );
+          const resolved = resolveConsoleTarget(
+            target,
+            snap.records,
+            snap.payments,
+          );
+          activeTargetRef.current = target;
+          setView(target.view);
+          setSelected(resolved.invoice ?? resolved.exception ?? null);
+          setLinkedPayment(resolved.payment?.id);
+          setSearch("");
+          setStatusFilter("all");
+          if (resolved.exception)
+            setNotice(
+              `Linked exception: ${String(resolved.exception.body.title)}. Review its evidence before resolving it; resolution cannot authorize payment.`,
+            );
+        } catch (e) {
+          setLinkError(
+            e instanceof Error
+              ? e.message
+              : "The linked record is unavailable.",
+          );
+        }
+      }
     },
     [call],
   );
@@ -194,7 +271,29 @@ export default function Console() {
         if (!active) return;
         setWallet(data.wallet);
         setOrgs(data.organizations);
-        if (data.organizations[0]) setOrg(data.organizations[0].id);
+        try {
+          const target = consoleTarget(query, data.organizations);
+          linkedTargetRef.current = target;
+          if (target) {
+            if (target.org === orgRef.current)
+              void load(target.org).catch((e) => {
+                if (active)
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Linked workspace could not be loaded.",
+                  );
+              });
+            else setOrg(target.org);
+          } else if (data.organizations[0]) setOrg(data.organizations[0].id);
+        } catch (e) {
+          setLinkError(
+            e instanceof Error
+              ? e.message
+              : "The workspace link could not be opened.",
+          );
+          if (data.organizations[0]) setOrg(data.organizations[0].id);
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -205,7 +304,7 @@ export default function Console() {
     return () => {
       active = false;
     };
-  }, [call]);
+  }, [call, load, query]);
   useEffect(() => {
     orgRef.current = org;
     if (!org) return;
@@ -739,6 +838,7 @@ export default function Console() {
     ["plan", "Payment plan", Clock],
     ["activity", "Payments & receipts", RefreshCw],
     ["operations", "Operations", Activity],
+    ["setup", "Setup", Settings],
     ["authority", "Authority", ShieldCheck],
     ["settings", "Team & settings", Settings],
   ] as const;
@@ -762,6 +862,11 @@ export default function Console() {
           aria-label="Organization"
           value={org}
           onChange={(e) => {
+            linkedTargetRef.current = null;
+            activeTargetRef.current = null;
+            setLinkedPayment(undefined);
+            activeTargetRef.current = null;
+            setLinkError("");
             setSelected(null);
             setForm("");
             setSecret(null);
@@ -778,23 +883,27 @@ export default function Console() {
           ))}
         </select>
         <nav>
-          {nav.map(([key, label, Icon]) => (
-            <button
-              key={key}
-              className={view === key ? "active" : ""}
-              aria-current={view === key ? "page" : undefined}
-              onClick={() => {
-                setView(key);
-                setSelected(null);
-                setReview(null);
-                setSearch("");
-                setStatusFilter("all");
-              }}
-            >
-              <Icon size={18} />
-              {label}
-            </button>
-          ))}
+          {nav
+            .filter(([key]) => key !== "setup" || isOwner)
+            .map(([key, label, Icon]) => (
+              <button
+                key={key}
+                className={view === key ? "active" : ""}
+                aria-current={view === key ? "page" : undefined}
+                onClick={() => {
+                  setView(key);
+                  setSelected(null);
+                  setReview(null);
+                  setSearch("");
+                  setStatusFilter("all");
+                  setLinkedPayment(undefined);
+                  setLinkError("");
+                }}
+              >
+                <Icon size={18} />
+                {label}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <Link href="/docs">
@@ -827,6 +936,11 @@ export default function Console() {
           </span>
         </header>
         <div className="live-content">
+          {linkError && (
+            <p role="alert" className="live-alert error">
+              {linkError}
+            </p>
+          )}
           {error && (
             <div role="alert" className="live-alert error">
               {error}
@@ -840,6 +954,8 @@ export default function Console() {
           )}
           {loading || workspaceLoading ? (
             <p>Opening your workspace…</p>
+          ) : !wallet ? (
+            <UnconfiguredWorkspace onSignIn={() => router.push("/login")} />
           ) : !org ? (
             <section className="live-empty">
               <p className="eyebrow">START WITH CLARITY</p>
@@ -903,6 +1019,21 @@ export default function Console() {
                     : "gated"}
                 </span>
               </div>
+              {view === "setup" && isOwner && (
+                <WorkspaceSetup
+                  key={org}
+                  org={org}
+                  records={snapshot.records}
+                  documents={documents.length}
+                  onOpen={(kind) => {
+                    if (kind === "document") setView("settings");
+                    else openForm(kind);
+                  }}
+                />
+              )}
+              {view === "setup" && !isOwner && (
+                <p>Workspace setup is available to the current owner.</p>
+              )}
               {view === "operations" && (
                 <OperationsCenter
                   key={org}
@@ -954,6 +1085,14 @@ export default function Console() {
                   </div>
                   <section className="live-panel">
                     <h2>A good place to start</h2>
+                    {isOwner && (
+                      <button
+                        className="button secondary"
+                        onClick={() => setView("setup")}
+                      >
+                        Check workspace setup
+                      </button>
+                    )}
                     <div className="onboarding-steps">
                       {[
                         [
@@ -1356,6 +1495,7 @@ export default function Console() {
                 <PaymentActivity
                   key={org}
                   org={org}
+                  initialPaymentId={linkedPayment}
                   payments={snapshot.payments}
                   invoices={invoices}
                   role={role}

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Download } from "lucide-react";
 import {
   formatAmount,
@@ -8,45 +8,101 @@ import {
   type WorkspaceRecord,
   type WorkspacePayment,
 } from "./format";
+async function loadPayment(org: string, id: string) {
+  const response = await fetch(`/api/organizations/${org}/payments/${id}`, {
+    cache: "no-store",
+  });
+  const body = await response.json();
+  if (!response.ok)
+    throw new Error(
+      body.error?.message ?? "Payment details could not be loaded.",
+    );
+  return body;
+}
 export function PaymentActivity({
   org,
   payments,
   invoices,
   role,
   onChange,
+  initialPaymentId,
 }: {
   org: string;
   payments: WorkspacePayment[];
   invoices: WorkspaceRecord[];
   role: string;
   onChange: () => Promise<void>;
+  initialPaymentId?: string;
 }) {
+  const generation = useRef(0);
+  const openedTarget = useRef<string | undefined>(undefined);
+  const initialAvailable = Boolean(
+    initialPaymentId &&
+    payments.some((payment) => payment.id === initialPaymentId),
+  );
   const [selected, setSelected] = useState<Record<string, unknown> | null>(
       null,
     ),
-    [loading, setLoading] = useState(false),
+    [loading, setLoading] = useState(Boolean(initialPaymentId)),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  async function inspect(id: string) {
+  const inspect = useCallback(
+    async (id: string) => {
+      const current = ++generation.current;
+      setError("");
+      setLoading(true);
+      setSelected(null);
+      try {
+        const body = await loadPayment(org, id);
+        if (current !== generation.current) return;
+        setSelected(body);
+      } catch (e) {
+        if (current !== generation.current) return;
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Payment details could not be loaded.",
+        );
+      } finally {
+        if (current === generation.current) setLoading(false);
+      }
+    },
+    [org],
+  );
+  useEffect(() => {
+    if (
+      !initialPaymentId ||
+      !initialAvailable ||
+      openedTarget.current === initialPaymentId
+    )
+      return;
+    openedTarget.current = initialPaymentId;
+    const current = ++generation.current;
+    setSelected(null);
     setError("");
     setLoading(true);
-    setSelected(null);
-    try {
-      const r = await fetch(`/api/organizations/${org}/payments/${id}`);
-      const body = await r.json();
-      if (!r.ok)
-        throw new Error(
-          body.error?.message ?? "Payment details could not be loaded.",
-        );
-      setSelected(body);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Payment details could not be loaded.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+    loadPayment(org, initialPaymentId)
+      .then((body) => {
+        if (current === generation.current) setSelected(body);
+      })
+      .catch((e) => {
+        if (current === generation.current)
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Payment details could not be loaded.",
+          );
+      })
+      .finally(() => {
+        if (current === generation.current) setLoading(false);
+      });
+  }, [initialPaymentId, org, initialAvailable]);
+  useEffect(
+    () => () => {
+      generation.current += 1;
+    },
+    [org],
+  );
   async function attach(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;

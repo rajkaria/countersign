@@ -1,0 +1,89 @@
+.setup-desk {
+  display: grid;
+  gap: 20px;
+}
+.setup-desk h2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.setup-steps,
+.setup-checks {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0;
+}
+.setup-steps li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line, #d8d9ce);
+}
+.setup-steps h3 {
+  margin: 8px 0;
+}
+.setup-steps p,
+.setup-checks p {
+  margin: 8px 0;
+  max-width: 78ch;
+  overflow-wrap: anywhere;
+}
+.setup-step-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #48603b;
+}
+.setup-checks li {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line, #d8d9ce);
+}
+.setup-check-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+.setup-status {
+  display: inline-block;
+  border: 1px solid #aeb3a2;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.setup-status.failed,
+.setup-status.invalid,
+.setup-status.missing {
+  background: #fff1e9;
+  color: #843911;
+}
+.setup-status.verified {
+  background: #edf5e8;
+  color: #315026;
+}
+.setup-financial {
+  font-weight: 700;
+}
+.setup-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+@media (max-width: 640px) {
+  .setup-steps li {
+    align-items: start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .setup-check-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

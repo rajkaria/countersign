@@ -2,6 +2,14 @@
 
 Countersign separates software configuration, readback evidence and owner authorization. A deployed landing page or a successful local test does not establish a working payment service. Start in Observe, test Prepare with consented fixtures, and review independent recovery before Delegate.
 
+## Follow setup in the console
+
+The authenticated workspace owner can open **Setup** in the console. It shows original-record steps, redacted infrastructure status, optional integrations and the separate payment-delegation requirements. Record presence does not establish approval or customer acceptance.
+
+The default status is a local configuration inspection. **Check database schema** performs only database readbacks on a dedicated read-only connection; it does not contact model, notice or payment providers. The owner API is `GET /api/organizations/{organizationId}/activation?probe=database`. Other probe kinds are rejected. It checks the exact migration registry, expected tables and added security columns. Restore, tenant isolation and recoverable document custody still require their own exercises.
+
+Public `/api/health` reports structural workspace configuration; `/api/ready` additionally requires the shipped database schema. A responding but unmigrated database returns readiness 503. Before private infrastructure is configured, the console links to these owner instructions and the separate synthetic demo.
+
 ## Inspect setup without performing an operation
 
 Run from the application root with Node 22. The diagnostic emits authored check descriptions and status values; it omits secret values, private URLs, raw provider responses and exception messages.
@@ -86,7 +94,7 @@ node --env-file=/secure/countersign-operations.env --import tsx scripts/operatio
 
 This worker leases only `operations.notify` jobs for its configured organization. Payment jobs and another organization's reminders remain untouched. A workspace can set timezone-aware quiet hours; deferred notices retain the same job identity and do not consume a retry. A provider timeout or crash after a send reservation becomes uncertain and is never automatically sent again. Inspect the private `notification_deliveries` record and resolve the provider outcome before any manual replacement. There is no claim that a quiet/no-actionable run delivered a message.
 
-`Dockerfile.operations-worker` supplies a separate non-root persistent container without Circle CLI provisioning. It starts the reminder loop explicitly; notification configuration and workspace opt-in remain required. The template has not been built or hosted by adding this file. Build and deploy it separately from Vercel, with only its private operations environment. Do not copy the financial worker's secret file onto this host.
+`Dockerfile.operations-worker` supplies a separate non-root persistent container with a bundled JavaScript entrypoint and only dedicated locked production dependencies. It excludes Circle CLI, web/framework packages and compiler/lint/test tooling. It starts the reminder loop explicitly; notification configuration and workspace opt-in remain required. The independent container workflow checks actual final images without external networking or live credentials; inspect its result for the exact release commit before claiming a build. Build and deploy separately from Vercel, with only its private operations environment. Do not copy the financial worker's secret file onto this host. See [deployment and container verification](deployment.md) for build, validation and isolated smoke commands.
 
 ## Owner action checklist
 
@@ -96,7 +104,7 @@ This worker leases only `operations.notify` jobs for its configured organization
 4. Select a durable worker host and secret manager. Start with execution disabled; verify leased-job restart/recovery, original operation identities, unknown-broadcast reconciliation, source verification and independently finalized destination settlement. Test the separately authenticated authorization service. A Vercel web function is not the persistent worker.
 5. Decide whether to enable model assistance, GitHub evidence, scoped forwarding and notices. Configure least-privilege credentials; review model data handling. Create a scoped intake key through the workspace and test stable-ID forwarding with a consented fixture. Explicitly authorize a notification destination before enabling notices. No diagnostic sends a notice.
 6. Explicitly authorize any funding and transfer allocation. Protection additionally needs accepted limited terms, fully reserved capital for all open liability windows, independent reviewer/recovery ownership and resources to service claims. Reconciliation and backup correctness do not supply these approvals.
-7. Obtain actual pilot consent, customer acceptance and source records; collect agreed evaluation and bookkeeping evidence. Resolve GitHub billing restrictions and verify a real hosted CI run. Keep source private until a separate publication/license decision; event registration, submission, outreach and spend require their own authorization.
+7. Obtain actual pilot consent, customer acceptance and source records; use the portable pilot kit to collect agreed evaluation and bookkeeping evidence. Verify hosted CI for the release commit. The previous runner-start billing restriction was resolved in the observed October 6 run; the financial provider audit has a separate unresolved dependency gate documented in security-review.md. Keep source private until a separate publication/license decision; event registration, submission, outreach and spend require their own authorization.
 
 ## Backup and restore acceptance
 

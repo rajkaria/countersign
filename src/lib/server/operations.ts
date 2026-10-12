@@ -4,6 +4,8 @@ import { id, ServiceError } from "./db";
 import { type Actor, requireRole } from "./auth";
 import { audit, getRecord, lockOrganization, saveRecord } from "./records";
 import { accountingExport, csvCell } from "./export";
+import { formatObligationAmount } from "../domain/money";
+import { consoleReviewHref, type ConsoleReview } from "../console-review";
 
 export type DeskRecord = {
   id: string;
@@ -44,6 +46,12 @@ const obligation = (r: DeskRecord) =>
   `${r.body.engagementId}:${r.body.obligationId ?? `${r.body.periodStart}:${r.body.periodEnd}`}`;
 const daySchema = z.iso.date();
 const priorities = ["urgent", "high", "normal", "low"];
+const reminderText = (value: unknown, maximum = 100) => {
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > maximum ? `${text.slice(0, maximum - 1)}…` : text;
+};
 
 /** An operational view, never a payment authorization. Totals deduplicate exact obligation identities. */
 export function summarizePayables(
@@ -485,37 +493,76 @@ export async function operationsDesk(
           priorities.indexOf(String(b.body.priority ?? "normal")),
     );
   const notices = [
-    ...summary.invoices
-      .filter(
-        (r) =>
-          BigInt(r.outstanding) > 0n &&
-          r.daysUntilDue <= preferences.preferences.reminderDays,
-      )
-      .map((r) => ({
-        kind: r.daysUntilDue < 0 ? "overdue" : "due_soon",
-        id: r.id,
-        message: `${r.reference}: ${r.daysUntilDue < 0 ? "overdue" : "due soon"}; ${r.currency} ${r.outstanding} atomic units outstanding.`,
-      })),
-    ...cases
-      .filter(
-        (r) => !["resolved", "reevaluated"].includes(String(r.body.status)),
-      )
-      .map((r) => ({
-        kind: r.escalated ? "escalation" : "exception",
-        id: r.id,
-        message: `${r.body.title}: ${r.body.reason}`,
-      })),
     ...payments.rows
       .filter((p) =>
         ["uncertain", "recovery_required", "destination_pending"].includes(
           p.state,
         ),
       )
-      .map((p) => ({
-        kind: "stuck_payment",
-        id: p.id,
-        message: `Payment ${p.id}: ${p.state}. Reconcile the same operation.`,
-      })),
+      .map((p) => {
+        const review: ConsoleReview = {
+          view: "history",
+          invoiceId: p.invoice_id,
+          paymentId: p.id,
+        };
+        const invoice = summary.invoices.find((r) => r.id === p.invoice_id);
+        return {
+          kind: "stuck_payment",
+          id: p.id,
+          message: `${reminderText(invoice?.reference ?? "Payment")}: ${formatObligationAmount(p.amount, "USDC")} ${p.state.replaceAll("_", " ")}. Reconcile the same operation ${p.id}.`,
+          actionLabel: "Reconcile original payment",
+          review,
+          href: consoleReviewHref(actor.organizationId, review),
+        };
+      }),
+    ...cases
+      .filter(
+        (r) => !["resolved", "reevaluated"].includes(String(r.body.status)),
+      )
+      .map((r) => {
+        const invoice = summary.invoices.find((i) => i.id === r.body.invoiceId);
+        const review: ConsoleReview = {
+          view: "invoices",
+          invoiceId: String(r.body.invoiceId),
+          caseId: r.id,
+        };
+        return {
+          kind: r.escalated ? "escalation" : "exception",
+          id: r.id,
+          message: `${reminderText(invoice?.reference ?? "Invoice")} — ${reminderText(r.body.title)}. Owner: ${r.body.owner || "Unassigned"}.${r.body.dueAt ? ` Resolve by ${r.body.dueAt}.` : " No case deadline set."} ${reminderText(r.body.reason, 240)}`,
+          actionLabel: "Review exception and evidence",
+          review,
+          href: consoleReviewHref(actor.organizationId, review),
+        };
+      }),
+    ...summary.invoices
+      .filter(
+        (r) =>
+          BigInt(r.outstanding) > 0n &&
+          r.daysUntilDue <= preferences.preferences.reminderDays,
+      )
+      .map((r) => {
+        const owners = [
+          ...new Set(
+            cases
+              .filter(
+                (c) =>
+                  c.body.invoiceId === r.id &&
+                  !["resolved", "reevaluated"].includes(String(c.body.status)),
+              )
+              .map((c) => String(c.body.owner || "Unassigned")),
+          ),
+        ];
+        const review: ConsoleReview = { view: "invoices", invoiceId: r.id };
+        return {
+          kind: r.daysUntilDue < 0 ? "overdue" : "due_soon",
+          id: r.id,
+          message: `${reminderText(r.reference)}: ${formatObligationAmount(r.outstanding, r.currency)} outstanding; due ${r.dueDate}${r.daysUntilDue < 0 ? ` (${Math.abs(r.daysUntilDue)} days overdue)` : r.daysUntilDue === 0 ? " (today)" : ""}.${owners.length ? ` Case owner: ${owners.slice(0, 3).join(", ")}${owners.length > 3 ? ` and ${owners.length - 3} more` : ""}.` : " No open case owner assigned."}`,
+          actionLabel: "Review invoice and evidence",
+          review,
+          href: consoleReviewHref(actor.organizationId, review),
+        };
+      }),
   ];
   return {
     summary: { ...summary, invoices: undefined },

@@ -1,3 +1,5 @@
+import { formatObligationAmount } from "@/lib/domain/money";
+
 export type WorkspaceRecord = {
   id: string;
   kind: string;
@@ -42,11 +44,14 @@ export function toDecimal(value: unknown) {
   return `${amount / 1_000_000n}.${(amount % 1_000_000n).toString().padStart(6, "0")}`;
 }
 export function formatAmount(value: unknown, currency: unknown = "USDC") {
-  const decimal = toDecimal(value);
-  if (!decimal) return "Unavailable";
-  const [whole, fraction] = decimal.split(".");
-  const precision = fraction.replace(/0+$/, "").padEnd(2, "0");
-  return `${BigInt(whole).toLocaleString("en-US")}.${precision} ${String(currency ?? "USDC")}`;
+  try {
+    return formatObligationAmount(
+      String(value ?? "0"),
+      String(currency ?? "USDC"),
+    );
+  } catch {
+    return "Unavailable";
+  }
 }
 export function formatTime(value: unknown) {
   if (!value) return "Not recorded";

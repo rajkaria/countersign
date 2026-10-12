@@ -1,6 +1,6 @@
 {
   "name": "countersign",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
     "receipt:verify": "tsx scripts/verify-receipt.ts",
     "check:boundary": "node scripts/check-boundary.mjs",
     "evaluate": "tsx scripts/evaluate.ts",
+    "pilot": "tsx scripts/pilot.ts",
     "doctor": "tsx scripts/doctor.ts",
     "activation:check": "tsx scripts/activation-check.ts",
     "db:restore:verify": "tsx scripts/restore-check.ts"

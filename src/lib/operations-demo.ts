@@ -127,12 +127,22 @@ export function demoOperations(): Awaited<ReturnType<typeof operationsDesk>> {
           id: "sample-hourly",
           message:
             "ORBIT-082: sample overdue remainder; reconcile the uncertain partial operation.",
+          actionLabel: "Review invoice and evidence",
+          review: { view: "invoices", invoiceId: "sample-hourly" },
+          href: "#ops-invoice-sample-hourly",
         },
         {
           kind: "exception",
           id: "sample-case",
           message:
             "Design milestone: request authorized acceptance, then reevaluate.",
+          actionLabel: "Review exception and evidence",
+          review: {
+            view: "invoices",
+            invoiceId: "sample-acceptance",
+            caseId: "sample-case",
+          },
+          href: "#ops-case-sample-case",
         },
       ],
     },

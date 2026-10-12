@@ -7,6 +7,7 @@ import {
   digestWindow,
 } from "./operations";
 import { notifyOperator } from "../integrations/notifications";
+import { noticeReviewsSchema } from "../console-review";
 export type NoticeConfig = Parameters<typeof notifyOperator>[1];
 type Sender = typeof notifyOperator;
 /** Leased outbox identity is retained during quiet hours; no retry attempt is consumed. */
@@ -30,6 +31,9 @@ export async function processOperationsNotice(
       .enum(["exception", "overdue", "stuck_payment", "coverage_capacity"])
       .parse(job.payload.kind),
     summary: z.string().min(1).max(500).parse(job.payload.summary),
+    ...(job.payload.reviews
+      ? { reviews: noticeReviewsSchema.parse(job.payload.reviews) }
+      : {}),
   };
   const { preferences } = await readOperationsPreferences(
     db,
@@ -148,6 +152,9 @@ export async function queueOperationsDigest(
         eventId,
         kind: "exception",
         summary: summary.slice(0, 500),
+        reviews: desk.digest.notices
+          .slice(0, 3)
+          .map((n) => ({ label: n.actionLabel, ...n.review })),
       }),
       `operations:digest:${org}:${date}`,
     ],

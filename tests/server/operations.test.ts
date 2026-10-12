@@ -9,6 +9,7 @@ import {
   saveOperationsPreferences,
   updateOperationsCase,
   accountingClose,
+  operationsDesk,
 } from "../../src/lib/server/operations";
 
 const org = "11111111-1111-4111-8111-111111111111";
@@ -138,6 +139,7 @@ beforeAll(async () => {
   pg = new PGlite();
   await pg.exec(await readFile("migrations/001_foundation.sql", "utf8"));
   await pg.exec(await readFile("migrations/002_security_controls.sql", "utf8"));
+  await pg.exec(await readFile("migrations/005_notice_delivery.sql", "utf8"));
   db = pg as unknown as Database;
 }, 30000);
 beforeEach(async () => {
@@ -149,6 +151,75 @@ beforeEach(async () => {
   ]);
 });
 afterAll(async () => pg.close());
+it("makes reminders readable and actionable without converting USD or losing fractional units", async () => {
+  const usdId = "55555555-5555-4555-8555-555555555555";
+  const stuckId = "66666666-6666-4666-8666-666666666666";
+  for (const [kind, identifier, body] of [
+    ["invoice", invoiceId, record(invoiceId, "1").body],
+    [
+      "invoice",
+      usdId,
+      {
+        ...record(usdId, "123456789").body,
+        currency: "USD",
+        obligationId: "usd-period",
+        reference: "USD-001",
+      },
+    ],
+    [
+      "case",
+      caseId,
+      {
+        invoiceId: usdId,
+        title: "Check acceptance",
+        reason: "Named approver evidence needed",
+        owner: actor.wallet,
+        status: "awaiting_evidence",
+        priority: "urgent",
+        dueAt: "2026-10-05T12:00:00Z",
+      },
+    ],
+  ] as const) {
+    await pg.query(
+      "INSERT INTO records(organization_id,kind,id,body,created_by) VALUES($1,$2,$3,$4,$5)",
+      [org, kind, identifier, JSON.stringify(body), actor.wallet],
+    );
+  }
+  await pg.query(
+    "INSERT INTO payment_intents(id,organization_id,invoice_id,engagement_id,idempotency_key,amount,state,permit) VALUES($1,$2,$3,$4,$5,1,'uncertain','{}')",
+    [stuckId, org, invoiceId, engagementId, stuckId],
+  );
+  const desk = await operationsDesk(db, actor, "2026-10-06T12:00:00Z");
+  const usd = desk.digest.notices.find(
+    (n) => n.kind === "overdue" && n.id === usdId,
+  )!;
+  expect(usd.message).toContain("123.456789 USD");
+  expect(usd.message).toContain("2026-10-05");
+  expect(usd.message).toContain(actor.wallet);
+  expect(usd.message).not.toContain("USDC");
+  expect(usd).toMatchObject({
+    href: `/console?org=${org}&view=invoices&invoice=${usdId}`,
+    actionLabel: "Review invoice and evidence",
+  });
+  const tiny = desk.digest.notices.find(
+    (n) => n.kind === "overdue" && n.id === invoiceId,
+  )!;
+  expect(tiny.message).toContain("0.000001 USDC");
+  const exception = desk.digest.notices.find((n) => n.id === caseId)!;
+  expect(exception.message).toContain("USD-001");
+  expect(exception.message).toContain("2026-10-05T12:00:00Z");
+  expect(exception.href).toBe(
+    `/console?org=${org}&view=invoices&invoice=${usdId}&case=${caseId}`,
+  );
+  expect(desk.digest.notices[0]).toMatchObject({
+    kind: "stuck_payment",
+    id: stuckId,
+    href: `/console?org=${org}&view=history&invoice=${invoiceId}&payment=${stuckId}`,
+  });
+  expect((await pg.query("SELECT state FROM payment_intents")).rows).toEqual([
+    { state: "uncertain" },
+  ]);
+});
 it("versions preferences, rejects viewer writes and stale overwrites, and stores no delivery credential", async () => {
   const preferences = {
     notificationsEnabled: false,

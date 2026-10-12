@@ -163,6 +163,19 @@ it("deduplicates daily digest queue identities and preserves no-payment authorit
   expect(
     (await queueOperationsDigest(db, org, "2026-10-06T14:00:00Z")).enqueued,
   ).toBe(false);
+  const queued = (
+    await pg.query<{ payload: { summary: string; reviews: unknown[] } }>(
+      "SELECT payload FROM outbox WHERE kind='operations.notify'",
+    )
+  ).rows[0].payload;
+  expect(queued.summary).toContain("1.00 USDC outstanding; due 2026-10-05");
+  expect(queued.reviews).toEqual([
+    {
+      label: "Review invoice and evidence",
+      view: "invoices",
+      invoiceId: invoice,
+    },
+  ]);
   expect((await pg.query("SELECT * FROM payment_intents")).rows).toHaveLength(
     0,
   );

@@ -58,6 +58,10 @@ import {
   updateMember,
 } from "@/lib/server/access";
 import { inspectActivation } from "@/lib/server/activation";
+import {
+  probeWorkspaceDatabase,
+  workspaceConfiguration,
+} from "@/lib/server/workspace-readiness";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const uuid = z.uuid();
@@ -116,14 +120,36 @@ async function handle(
       return reply({
         service: "countersign",
         status: "ok",
-        version: "0.2.0",
-        workspaceConfigured: Boolean(process.env.DATABASE_URL),
+        version: "0.3.0",
+        workspaceConfigured: workspaceConfiguration().workspaceConfigured,
         executionEnabled: false,
       });
     const db = database();
     if (path[0] === "ready") {
-      await db.query("SELECT 1");
-      return reply({ database: "ready", execution: "gated" });
+      const report = workspaceConfiguration();
+      if (!report.workspaceConfigured)
+        throw new ServiceError(
+          503,
+          "WORKSPACE_CONFIGURATION",
+          "Complete the private database, document encryption and sign-in origin configuration.",
+        );
+      const client = await db.connect();
+      try {
+        const checked = await probeWorkspaceDatabase(client, report);
+        if (!checked.databaseVerified)
+          throw new ServiceError(
+            503,
+            "DATABASE_SCHEMA",
+            "Database schema is not ready for this release. Apply the dedicated database migrations and repeat the check.",
+          );
+        return reply({
+          database: "ready",
+          schema: "verified",
+          execution: "gated",
+        });
+      } finally {
+        client.release();
+      }
     }
     if (path[0] === "auth") {
       if (method === "POST") checkOrigin(request);
@@ -224,7 +250,21 @@ async function handle(
     await limit(db, `api:${actor.wallet}`, 120);
     if (path[2] === "activation" && method === "GET") {
       requireRole(actor, ["owner"]);
-      return reply(inspectActivation({ profile: "web", organizationId }));
+      const probe = new URL(request.url).searchParams.get("probe");
+      if (probe !== null && probe !== "database")
+        throw new ServiceError(
+          400,
+          "PROBE",
+          "Only the read-only database probe is available here.",
+        );
+      const report = inspectActivation({ profile: "web", organizationId });
+      if (probe === null) return reply(report);
+      const client = await db.connect();
+      try {
+        return reply(await probeWorkspaceDatabase(client, report));
+      } finally {
+        client.release();
+      }
     }
     if (
       path[2] === "acceptances" &&

@@ -195,7 +195,47 @@ export function RecordInspector({
               <strong>{humanize(finding.code)}</strong>
               <p>{finding.message}</p>
               {finding.sourceIds?.length ? (
-                <small>Record sources: {finding.sourceIds.join(", ")}</small>
+                <div
+                  className="console-related-sources"
+                  aria-label="Finding sources"
+                >
+                  {finding.sourceIds.map((id) => {
+                    const sourceRecord = records.find((r) => r.id === id);
+                    const sourceDocument = documents.find((d) => d.id === id);
+                    if (sourceRecord)
+                      return (
+                        <button
+                          className="text-link"
+                          key={id}
+                          onClick={() => onSelect(sourceRecord)}
+                        >
+                          {String(
+                            sourceRecord.body.reference ??
+                              sourceRecord.body.title ??
+                              sourceRecord.body.name ??
+                              humanize(sourceRecord.kind),
+                          )}{" "}
+                          · v{sourceRecord.version}
+                        </button>
+                      );
+                    if (sourceDocument)
+                      return (
+                        <a
+                          key={id}
+                          href={`/api/organizations/${org}/documents/${sourceDocument.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {sourceDocument.filename}
+                        </a>
+                      );
+                    return (
+                      <small key={id}>
+                        Source reference {id} · unavailable in this snapshot
+                      </small>
+                    );
+                  })}
+                </div>
               ) : null}
             </div>
           ))}

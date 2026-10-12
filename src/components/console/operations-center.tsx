@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Bell,
@@ -9,13 +10,11 @@ import {
 } from "lucide-react";
 import type { operationsDesk } from "@/lib/server/operations";
 import { demoOperations } from "@/lib/operations-demo";
+import { consoleReviewHref } from "@/lib/console-review";
+import { formatAmount } from "./format";
 import "./operations.css";
 
 type Desk = Awaited<ReturnType<typeof operationsDesk>>;
-const amount = (value: string) => {
-  const n = BigInt(value);
-  return `${(n / 1000000n).toLocaleString()}.${(n % 1000000n).toString().padStart(6, "0").slice(0, 2)}`;
-};
 export function OperationsCenter({
   org = "",
   role = "viewer",
@@ -32,6 +31,7 @@ export function OperationsCenter({
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [caseFilter, setCaseFilter] = useState("open");
   const [from, setFrom] = useState(
     new Date().toISOString().slice(0, 7) + "-01",
   );
@@ -127,6 +127,18 @@ export function OperationsCenter({
           : i.warnings.length > 0),
   );
   const preferences = desk.preferences.preferences;
+  const activeCases = desk.cases.filter(
+    (entry) => !["resolved", "reevaluated"].includes(String(entry.body.status)),
+  );
+  const visibleCases = caseFilter === "all" ? desk.cases : activeCases;
+  const invoiceHref = (invoiceId: string, caseId?: string) =>
+    demo
+      ? `#ops-${caseId ? `case-${caseId}` : `invoice-${invoiceId}`}`
+      : consoleReviewHref(org, {
+          view: "invoices",
+          invoiceId,
+          ...(caseId ? { caseId } : {}),
+        });
   const canEdit = demo || ["owner", "approver", "operator"].includes(role);
   async function savePreferences(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,7 +180,7 @@ export function OperationsCenter({
       priority: String(f.get("priority")),
       status: String(f.get("status")),
       resolution: String(f.get("resolution")),
-      ...(due ? { dueAt: new Date(`${due}T00:00:00Z`).toISOString() } : {}),
+      ...(due ? { dueAt: new Date(`${due}Z`).toISOString() } : {}),
     };
     if (body.status === "resolved" && body.resolution.trim().length < 12) {
       setError(
@@ -189,6 +201,13 @@ export function OperationsCenter({
               }
             : c,
         ),
+        digest: {
+          ...desk!.digest,
+          notices:
+            body.status === "resolved"
+              ? desk!.digest.notices.filter((notice) => notice.id !== entry.id)
+              : desk!.digest.notices,
+        },
       });
       setEditing(null);
       setNotice(
@@ -269,11 +288,44 @@ export function OperationsCenter({
           {notice}
         </p>
       )}
+      {desk.digest.notices.length > 0 && (
+        <section className="ops-review" aria-label="Priority review queue">
+          <div className="ops-toolbar">
+            <h3>Start with these reviews</h3>
+            <span className="small-muted">
+              {desk.digest.notices.length} review items · {activeCases.length}{" "}
+              open cases
+            </span>
+          </div>
+          <p className="small-muted">
+            Reconcile uncertain transfers first, then review exceptions and due
+            obligations with their evidence.
+          </p>
+          <ol className="ops-review-list">
+            {desk.digest.notices.slice(0, 3).map((entry) => (
+              <li key={`${entry.kind}:${entry.id}`}>
+                <div>
+                  <strong>{entry.kind.replaceAll("_", " ")}</strong>
+                  <p>{entry.message}</p>
+                </div>
+                <Link
+                  className="ops-action-link"
+                  href={entry.href}
+                  prefetch={false}
+                >
+                  {entry.actionLabel}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {BigInt(desk.summary.unattributedCommittedUSDC) > 0n && (
         <p role="status" className="ops-notice">
           Other retained commitments:{" "}
-          {amount(desk.summary.unattributedCommittedUSDC)} USDC. Restore or
-          reconcile their source invoices before planning another payment.
+          {formatAmount(desk.summary.unattributedCommittedUSDC, "USDC")}.
+          Restore or reconcile their source invoices before planning another
+          payment.
         </p>
       )}
       {Object.entries(desk.summary.totals).map(([currency, totals]) => (
@@ -290,9 +342,7 @@ export function OperationsCenter({
             ).map(([label, value]) => (
               <div className="ops-stat" key={label}>
                 <span>{label}</span>
-                <strong>
-                  {amount(value)} <small>{currency}</small>
-                </strong>
+                <strong>{formatAmount(value, currency)}</strong>
               </div>
             ))}
           </div>
@@ -337,13 +387,19 @@ export function OperationsCenter({
             </tr>
           </thead>
           <tbody>
+            {invoices.length === 0 && desk.invoices.length > 0 && (
+              <tr>
+                <td colSpan={5}>
+                  No obligations match this filter. Choose All obligations to
+                  return to the full calendar.
+                </td>
+              </tr>
+            )}
             {invoices.map((invoice) => (
-              <tr key={invoice.id}>
+              <tr key={invoice.id} id={`ops-invoice-${invoice.id}`}>
                 <td>
                   <strong>{invoice.reference}</strong>
-                  <span>
-                    {invoice.currency} {amount(invoice.amount)}
-                  </span>
+                  <span>{formatAmount(invoice.amount, invoice.currency)}</span>
                 </td>
                 <td>
                   {invoice.dueDate}
@@ -355,12 +411,8 @@ export function OperationsCenter({
                         : `In ${invoice.daysUntilDue} days`}
                   </span>
                 </td>
-                <td>
-                  {amount(invoice.outstanding)} {invoice.currency}
-                </td>
-                <td>
-                  {amount(invoice.committed)} {invoice.currency}
-                </td>
+                <td>{formatAmount(invoice.outstanding, invoice.currency)}</td>
+                <td>{formatAmount(invoice.committed, invoice.currency)}</td>
                 <td>
                   {invoice.warnings.length ? (
                     <details>
@@ -378,20 +430,43 @@ export function OperationsCenter({
                   ) : (
                     "Verify terms and delivery"
                   )}
+                  <Link
+                    className="ops-action-link"
+                    href={invoiceHref(invoice.id)}
+                    prefetch={false}
+                  >
+                    Review invoice and evidence
+                  </Link>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <h3>Exception owners & deadlines</h3>
+      <div className="ops-toolbar">
+        <h3>Exception owners & deadlines</h3>
+        <label>
+          Show cases{" "}
+          <select
+            value={caseFilter}
+            onChange={(e) => setCaseFilter(e.target.value)}
+          >
+            <option value="open">Open work</option>
+            <option value="all">All including resolved</option>
+          </select>
+        </label>
+      </div>
       <p className="small-muted">
         Assignment and resolution organize human work. They cannot attest
         delivery, clear a payment hold or grant authority.
       </p>
       <div className="ops-cases">
-        {desk.cases.map((entry) => (
-          <article className="ops-case" key={entry.id}>
+        {visibleCases.map((entry) => (
+          <article
+            className="ops-case"
+            key={entry.id}
+            id={`ops-case-${entry.id}`}
+          >
             <div className="ops-toolbar">
               <h4>{String(entry.body.title)}</h4>
               <span
@@ -404,24 +479,40 @@ export function OperationsCenter({
             </div>
             <p>{String(entry.body.reason)}</p>
             <p className="small-muted">
-              Owner: {String(entry.body.owner)} ·{" "}
+              Invoice:{" "}
+              {desk.invoices.find(
+                (invoice) => invoice.id === entry.body.invoiceId,
+              )?.reference ?? String(entry.body.invoiceId)}
+            </p>
+            <p className="small-muted">
+              Owner: {String(entry.body.owner || "Unassigned")} ·{" "}
               {String(entry.body.priority ?? "normal")} priority
             </p>
             {entry.body.dueAt ? (
               <p className="small-muted">
-                Resolve by {String(entry.body.dueAt).slice(0, 10)}
+                Resolve by{" "}
+                {String(entry.body.dueAt).slice(0, 16).replace("T", " ")} UTC
               </p>
             ) : null}
-            {canEdit && (
-              <button
-                className="button"
-                onClick={() =>
-                  setEditing(editing === entry.id ? null : entry.id)
-                }
+            <div className="ops-case-actions">
+              <Link
+                className="ops-action-link"
+                href={invoiceHref(String(entry.body.invoiceId), entry.id)}
+                prefetch={false}
               >
-                {editing === entry.id ? "Cancel edit" : "Assign or resolve"}
-              </button>
-            )}
+                Review exception and evidence
+              </Link>
+              {canEdit && (
+                <button
+                  className="button"
+                  onClick={() =>
+                    setEditing(editing === entry.id ? null : entry.id)
+                  }
+                >
+                  {editing === entry.id ? "Cancel edit" : "Assign or resolve"}
+                </button>
+              )}
+            </div>
             {editing === entry.id && (
               <form className="ops-form" onSubmit={(e) => saveCase(e, entry)}>
                 <label>
@@ -471,9 +562,10 @@ export function OperationsCenter({
                 <label>
                   Resolve by (UTC)
                   <input
-                    type="date"
+                    type="datetime-local"
+                    step="1"
                     name="dueAt"
-                    defaultValue={String(entry.body.dueAt ?? "").slice(0, 10)}
+                    defaultValue={String(entry.body.dueAt ?? "").slice(0, 19)}
                   />
                 </label>
                 <label className="ops-full">
@@ -491,9 +583,11 @@ export function OperationsCenter({
             )}
           </article>
         ))}
-        {!desk.cases.length && (
+        {!visibleCases.length && (
           <p className="ops-empty">
-            No exception cases. Future discrepancies appear here once recorded.
+            {caseFilter === "open"
+              ? "No open exception work. Resolved cases remain available in All including resolved."
+              : "No exception cases. Future discrepancies appear here once recorded."}
           </p>
         )}
       </div>
@@ -515,6 +609,13 @@ export function OperationsCenter({
                 <li key={`${n.kind}:${n.id}`}>
                   <strong>{n.kind.replaceAll("_", " ")}</strong>
                   <span>{n.message}</span>
+                  <Link
+                    className="ops-action-link"
+                    href={n.href}
+                    prefetch={false}
+                  >
+                    {n.actionLabel}
+                  </Link>
                 </li>
               ))}
             </ul>

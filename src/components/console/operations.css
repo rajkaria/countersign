@@ -14,6 +14,70 @@
   gap: 8px;
   margin: 0 0 14px;
 }
+.ops-review {
+  padding: 22px;
+  border: 1px solid #bdd7c6;
+  border-radius: 12px;
+  background: #f1f8f4;
+  min-width: 0;
+}
+.ops-review h3 {
+  margin-bottom: 0;
+}
+.ops-review-list {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style-position: inside;
+}
+.ops-review-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  border-top: 1px solid #cddfd4;
+  padding-top: 14px;
+  min-width: 0;
+}
+.ops-review-list strong {
+  text-transform: capitalize;
+  font-size: 13px;
+}
+.ops-review-list p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.ops-action-link {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: #23583f;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.ops-review-list .ops-action-link {
+  flex: 0 0 160px;
+  margin: 0;
+}
+.ops-case-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ops-case-actions .ops-action-link {
+  margin: 0;
+}
+.ops-case:target,
+.ops-center tr:target {
+  outline: 3px solid #2b7053;
+  outline-offset: -3px;
+  scroll-margin-top: 24px;
+}
 .ops-heading,
 .ops-toolbar {
   display: flex;
@@ -224,6 +288,15 @@
   }
 }
 @media (max-width: 500px) {
+  .ops-review {
+    padding: 16px;
+  }
+  .ops-review-list li {
+    display: block;
+  }
+  .ops-review-list .ops-action-link {
+    margin-top: 10px;
+  }
   .ops-form {
     grid-template-columns: 1fr;
   }
