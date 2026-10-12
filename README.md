@@ -24,13 +24,15 @@ The operating desk combines due dates, settled and committed balances, exception
 
 ## Product preview
 
+![Reproducible synthetic product walkthrough](docs/assets/reviewer.png)
+
 ![Countersign landing page](docs/assets/landing.png)
 
 ![Isolated synthetic payment workspace](docs/assets/workspace.png)
 
 ![Synthetic operations desk](docs/assets/operations.png)
 
-The workspace screenshot contains fictional sample records. No customer activity or real payment is represented.
+The screenshots contain fictional sample records. No customer activity or real payment is represented.
 
 ## Run locally
 

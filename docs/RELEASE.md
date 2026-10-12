@@ -1,6 +1,6 @@
 # Release verification and activation
 
-Release date: 13 October 2026. Software version: 0.3.0. Private source: https://github.com/rajkaria/countersign. Web deployment: https://countersign-jet.vercel.app.
+Release date: 13 October 2026. Software version: 0.4.0. Private source: https://github.com/rajkaria/countersign. Web deployment: https://countersign-jet.vercel.app.
 
 ## Actual deployment
 
@@ -37,7 +37,7 @@ The following mapping separates software evidence from live acceptance. Local mo
 
 ## Gate assessment
 
-G1–G4 remain externally gated by actual pilot data, dedicated persistence/worker deployment, Circle compatibility, contract installation, owner recovery practice and authorized settlement. G5 software paths are implemented; its real destination route and coverage require activation. G6 has synthetic/local evaluation and internal security review, with no independent customer timing, repeat usage or external audit. G7 has a deployed logged-out experience, private repository and detailed documentation; public-source permission, event video and submission are not established. G8 has operations/recovery instructions, but funded reserves, operators and active monitoring must be provisioned.
+G1–G4 remain externally gated by actual pilot data, dedicated persistence/worker deployment, Circle compatibility, contract installation, owner recovery practice and authorized settlement. G5 software paths are implemented; its real destination route and coverage require activation. G6 has synthetic/local evaluation and internal security review, with no independent customer timing, repeat usage or external audit. G7 has a deployed logged-out experience, private repository and detailed documentation; public-source permission, approved public video hosting and submission are not established. G8 has operations/recovery instructions, but funded reserves, operators and active monitoring must be provisioned.
 
 ## Required owner actions
 
@@ -51,7 +51,17 @@ See deployment.md, contracts.md, integrations.md, relay.md, operations.md and se
 
 The financial provider runtime also has an unresolved dependency gate: its Circle CLI lock retains two high and seven low audit package entries from unpatched cryptographic dependency advisories. The strict provider audit fails without suppression. Keep financial execution disabled until a reviewed provider fix or independently reviewed resolution clears this gate. The web and independent operations runtime production audits report zero findings at the recorded check.
 
-## October 13 completion
+## October 13 final submission pass
+
+Version 0.4.0 adds `/review`, a reproducible unauthenticated walkthrough of acceptance, term corrections, exact partials, semantic duplicates and retained uncertain operations. Downloadable traces contain production-verifier inputs/output and are labeled synthetic. The full demo uses production planning with explicit fixture balances, preserves USD/USDC identity and dates, and holds added invoices without invented approved sources.
+
+The console exposes proposal-only questions, current source citations, preserved model evidence snapshots and model/prompt/response provenance. Evidence comes from the exact verification transaction; membership is revalidated before persistence. The result retains original invoice/terms/policy binding and is never current execution authority.
+
+Workers recheck cached deployment review expiry before new submission, including after delayed wallet discovery. Reconciliation-only identity loading retains recovery after review expiry/restart. Arc USDC observation uses the native system stream conservatively; fractional debits/unsupported historical windows hold automatic reconciliation. A second outgoing effect cannot reuse one payment proof. Actual Circle SCA destination relay compatibility is not established by the direct-envelope check and remains gated. See contracts/security-review notes.
+
+A privately retained narrated/captioned screen recording is 176.890 seconds, 1920×1080 at 30fps. Its persistent synthetic label, source, transcript and export verification are supplied. No video upload, live model, customer or Circle proof is inferred.
+
+## Earlier October 13 completion
 
 Owners have a console **Setup** view with redacted configuration, original-record steps, a database-only readback and separate external financial prerequisites. Public readiness verifies the exact five-migration registry and expected security-control columns; a reachable but unmigrated database cannot pass. The logged-out console explains infrastructure setup and links to the isolated demo.
 
@@ -69,11 +79,11 @@ Redacted activation diagnostics, explicit read-only probes, five migrations, sep
 
 ## Verified checks
 
-On 13 October 2026, Node 22 verification passed TypeScript, ESLint, 231 application tests across 30 files, 32 Foundry tests and the production Next.js 16.3.8 build. Foundry includes three 512-run fuzz tests and two 128-run stateful invariants with 8,192 calls each. Boundary and whitespace checks passed. Four dedicated worker packaging tests pass, including bundled entrypoint startup and dependency separation.
+On 13 October 2026, Node 22 verification passed TypeScript, ESLint, 257 application tests across 34 files, 32 Foundry tests and the production Next.js 16.3.8 build. Foundry includes three 512-run fuzz tests and two 128-run stateful invariants with 8,192 calls each. Boundary and whitespace checks passed. Four dedicated worker packaging tests pass, including bundled entrypoint startup and dependency separation.
 
-Thirty-six desktop/mobile Playwright cases pass locally. They cover public navigation and all 31 handbook guides, anonymous API boundaries, keyboard review, search/raw/LLM parity, isolated operations preferences/cases/exports, versioned hourly/partial retry payloads, invoice-extraction provenance, one-time capability clearing, logout and late-tenant response isolation. New cases cover setup configuration versus schema evidence, pre-login infrastructure guidance, same-console review links, retained recovery targets and stale payment-detail prevention. Console transports are explicitly synthetic fixtures; these tests do not establish a live database, model call or financial compatibility.
+Forty-four desktop/mobile Playwright cases pass locally. They cover public navigation and all 32 handbook guides, anonymous API boundaries, keyboard review, search/raw/LLM parity, isolated operations preferences/cases/exports, versioned hourly/partial retry payloads, invoice-extraction provenance, one-time capability clearing, logout and late-tenant response isolation. New cases also cover reviewer trace/downloads, exact demo currency/dates/unapproved sources, recorded proposal/source inspection and current/stale model bindings. Console transports are explicitly synthetic fixtures; these tests do not establish a live database, model call or financial compatibility.
 
-The October 6 operations demo passed scoped automated WCAG 2A/AA/2.1AA and overflow checks at 1440, 390 and 320 pixels. The new setup view has desktop/mobile overflow regression coverage. Neither establishes comprehensive accessibility certification.
+Reviewer, reviewer handbook and settled landing states pass scoped automated WCAG 2A/AA/2.1AA and overflow checks at 1440, 390 and 320 pixels using reduced-motion review. Initial opacity animations can yield transient contrast findings before settling. The October 6 operations demo passed scoped automated WCAG 2A/AA/2.1AA and overflow checks at 1440, 390 and 320 pixels. The new setup view has desktop/mobile overflow regression coverage. Neither establishes comprehensive accessibility certification.
 
 Web production dependency audit reports zero findings. The full web-development audit retains five high package entries from one unpatched braces/ESLint glob advisory. The isolated final workers exclude that chain; their common production runtime has zero findings. The financial-only Circle dependency audit separately retains nine entries (two high, seven low). See security-review.md for source-path review and limitations; the overall dependency audit and CI are not described as clean.
 
@@ -85,6 +95,6 @@ The released public landing/docs/demo and private console/API software use the e
 
 GitHub Actions' historical runner-start billing restriction was superseded by the successful October 6 Verify run. The October 13 `Verify` and `Worker containers` runs are inspected separately for this release. The financial provider runtime-audit job deliberately remains a failing gate while the unpatched high advisory persists; build/smoke success cannot waive it. No billing settings or financial activation switches were changed.
 
-At implementation commit `e1f791f`, the actual [container build/smoke job](https://github.com/rajkaria/countersign/actions/runs/38301286690/job/114984567529) passed: both final images built, package/nonroot isolation assertions passed, offline CLI/startup checks passed and the operations image completed a disabled cycle against an internal disposable PostgreSQL fixture. No external network route, live credential or provider effect was used by the smoke tests. The same workflow's separate provider audit failed as described above, so the overall workflow remains failed.
+Historical 0.3.0 evidence: at implementation commit `e1f791f`, the actual [container build/smoke job](https://github.com/rajkaria/countersign/actions/runs/38301286690/job/114984567529) passed: both final images built, package/nonroot isolation assertions passed, offline CLI/startup checks passed and the operations image completed a disabled cycle against an internal disposable PostgreSQL fixture. No external network route, live credential or provider effect was used by the smoke tests. The same workflow's separate provider audit failed as described above, so the overall workflow remains failed.
 
 The [hosted Verify run](https://github.com/rajkaria/countersign/actions/runs/38301286692) at the same implementation commit succeeded, including a clean dependency installation without local environment files, the full Node 22 application/contract/build gate and all 36 desktop/mobile browser cases. This establishes reproducible software checks, not production tenant/provider compatibility or financial activation.
