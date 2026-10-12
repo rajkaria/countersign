@@ -1,0 +1,44 @@
+name: Worker containers
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: worker-containers-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  worker-containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            worker-runtime/package-lock.json
+            worker-runtime/circle/package-lock.json
+      - name: Install dedicated build tools
+        run: npm ci --prefix worker-runtime --ignore-scripts
+      - name: Check worker packaging and bundled entrypoints
+        run: npm test --prefix worker-runtime
+      - name: Build financial worker final image
+        run: docker build --pull -f Dockerfile.worker -t countersign-worker:test .
+      - name: Build operations worker final image
+        run: docker build --pull -f Dockerfile.operations-worker -t countersign-operations-worker:test .
+      - name: Pull pinned disposable database fixture
+        run: docker pull postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+      - name: Smoke final images without external networking or live credentials
+        run: node scripts/verify-worker-containers.mjs
+  runtime-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit minimal worker runtime
+        run: npm audit --prefix worker-runtime --omit=dev --audit-level=moderate
+      - name: Audit financial provider runtime without suppressing vendor findings
+        run: npm audit --prefix worker-runtime/circle --omit=dev --omit=peer --audit-level=moderate

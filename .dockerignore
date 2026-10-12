@@ -1,6 +1,8 @@
 **/.git
 **/.env*
 node_modules
+**/node_modules
+worker-runtime/dist
 .next
 contracts
 internal

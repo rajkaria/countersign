@@ -1,10 +1,21 @@
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS build
+WORKDIR /app/worker-runtime
+COPY worker-runtime/package.json worker-runtime/package-lock.json ./
+RUN npm ci --include=dev --ignore-scripts
+COPY worker-runtime/build.mjs ./build.mjs
+COPY tsconfig.json /app/tsconfig.json
+COPY src/lib /app/src/lib
+COPY scripts/worker.ts scripts/operations-worker.ts scripts/operations-worker-loop.ts /app/scripts/
+RUN npm run build
+
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --include=dev --ignore-scripts && npm install --global @circle-fin/cli@1.1.4 --ignore-scripts && npm cache clean --force
-COPY src/lib ./src/lib
-COPY scripts/worker.ts ./scripts/worker.ts
-COPY tsconfig.json ./tsconfig.json
+ENV NODE_ENV=production EXECUTION_ENABLED=false NOTIFICATIONS_ENABLED=false CIRCLE_VERSION_CHECK=off
+COPY worker-runtime/package.json worker-runtime/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY worker-runtime/circle/package.json worker-runtime/circle/package-lock.json /opt/circle/
+RUN npm ci --prefix /opt/circle --omit=dev --omit=peer --ignore-scripts && ln -s /opt/circle/node_modules/.bin/circle /usr/local/bin/circle && npm cache clean --force
+COPY --from=build /app/worker-runtime/dist/worker.mjs ./worker.mjs
+COPY worker-runtime/assert-runtime.mjs ./assert-runtime.mjs
 USER node
-CMD ["node", "--import", "tsx", "scripts/worker.ts"]
+CMD ["node", "worker.mjs"]

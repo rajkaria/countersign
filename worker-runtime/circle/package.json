@@ -1,0 +1,16 @@
+{
+  "name": "countersign-circle-runtime",
+  "version": "0.3.0",
+  "private": true,
+  "dependencies": {
+    "@circle-fin/cli": "1.1.4"
+  },
+  "overrides": {
+    "jayson": "5.0.0",
+    "toml": "5.0.0",
+    "ws@^8.0.0": "8.22.0"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

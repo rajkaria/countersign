@@ -54,16 +54,24 @@ Back up PostgreSQL and the document key separately. Test restore before acceptin
 
 ## Persistent worker container
 
-Dockerfile.worker provides a Node 22 worker with the inspected Circle CLI version pinned. It intentionally does not provision a wallet, accept provider terms, copy profiles, or embed environment files. Build the container separately from Vercel, provision secrets on the worker host, and mount its Circle profile under the non-root user's home. Mount a reviewed deployment manifest read-only or supply the JSON secret. Start with execution disabled and verify the exact deployment before enabling it.
+`Dockerfile.worker` builds the existing financial worker into a Node 22 JavaScript entrypoint. The final image installs only the dedicated locked PostgreSQL, validation and chain-library runtime in `worker-runtime/`, plus the separate locked Circle CLI 1.1.4 runtime. The build-only compiler, TypeScript launcher, web framework, React, lint/test tools and development glob dependency chain are absent from the final image. Both build and runtime stages pin the same multi-architecture Node image digest.
+
+It intentionally does not provision a wallet, accept provider terms, copy profiles, or embed environment files. Build separately from Vercel, provision secrets on the worker host, and mount its Circle profile under the non-root user's home. Mount a reviewed deployment manifest read-only or supply the JSON secret. Ensure mounted profile permissions permit the image's `node` user (UID 1000) to read and, if required by Circle session renewal, update its dedicated profile. Start with execution disabled and verify the exact deployment before enabling it.
 
 ```sh
 docker build -f Dockerfile.worker -t countersign-worker .
 # Supply a private environment file and a protected Circle profile/manifest mount.
 # Run only after the documented compatibility and recovery checks are complete.
-docker run --init --restart unless-stopped --env-file /secure/countersign-worker.env countersign-worker
+docker run --init --restart unless-stopped \
+  --env-file /secure/countersign-worker.env \
+  --mount type=bind,source=/secure/countersign-circle,target=/home/node/.circle \
+  --mount type=bind,source=/secure/deployment.json,target=/run/countersign/deployment.json,readonly \
+  countersign-worker
 ```
 
-The container definition is supplied for deployment; it has not been built or hosted as part of the static Vercel release. The worker performs a periodic read-only Safe refresh, standing obligation reassessment and leased job dispatch. A missing manifest or database is a startup gate. Keep the Circle profile on the worker and the verifier key absent there. The current payment authorization endpoint needs the verifier key in its service; production review must decide whether to isolate that authorization service from the broader web deployment. The `config/worker.env.example` and `config/verifier.env.example` templates encode this distinction. Run the diagnostic separately on each host using its matching profile.
+The worker performs a periodic read-only Safe refresh, standing obligation reassessment and leased job dispatch. A missing manifest or database is a startup gate. Keep the Circle profile on the worker and the verifier key absent there. The current payment authorization endpoint needs the verifier key in its service; production review must decide whether to isolate that authorization service from the broader web deployment. The `config/worker.env.example` and `config/verifier.env.example` templates encode this distinction. Run the diagnostic separately on each host using its matching profile.
+
+The financial provider runtime has an unresolved dependency release gate: Circle CLI's current `node-forge` dependency has an unpatched high-severity RSA verification advisory; an `elliptic` dependency also retains a low-severity primitive-risk advisory. Exact findings and the scoped reachability review are in [security review](security-review.md). The CLI remains pinned and the dependency audit fails on moderate/high findings rather than suppressing them. Local parser/import checks and compatible transitive updates are not deployment-specific payment compatibility evidence. Keep financial execution disabled until a reviewed provider fix or reviewed alternative resolves this gate.
 
 ## Observe-stage operations worker
 
@@ -75,4 +83,35 @@ node --env-file=/secure/countersign-operations.env --import tsx scripts/operatio
 node --env-file=/secure/countersign-operations.env --import tsx scripts/operations-worker.ts --run
 ```
 
-`config/operations-worker.env.example` and `Dockerfile.operations-worker` provide isolated deployment inputs. The operations worker leases only its organization's operations notices and cannot dispatch financial jobs. The container template is supplied; deployment and actual delivery must be verified separately. See the activation guide before enabling it.
+`config/operations-worker.env.example` and `Dockerfile.operations-worker` provide isolated deployment inputs. Its final image includes only its bundled entrypoint and dedicated production runtime; no Circle CLI/profile, web framework, compiler, lint/test tooling, model extraction or financial dispatcher is included. It runs as `node`, defaults both payment and notice switches to false, and rejects financial credentials in its configuration. Shared record schemas retain inert ABI declarations; these are not an executor. The worker leases only its organization's operations notices and cannot dispatch financial jobs.
+
+```sh
+docker build -f Dockerfile.operations-worker -t countersign-operations-worker .
+# Configuration validation only: this command cannot contact a database or provider.
+docker run --rm --network none --env-file /secure/countersign-operations.env \
+  countersign-operations-worker node operations-worker.mjs
+# Default container command starts the persistent loop; delivery still requires authorization and opt-in.
+docker run --init --restart unless-stopped --env-file /secure/countersign-operations.env \
+  countersign-operations-worker
+```
+
+## Container verification and dependency gate
+
+The independent `Worker containers` GitHub workflow builds both final images and tests their actual package inventory, non-root identity, offline startup and Circle command interfaces. Smoke containers use a read-only root filesystem, dropped capabilities and no external networking. A separate internal Docker network connects the operations image only to a disposable PostgreSQL fixture, where disabled `--run --once` startup must report no queued notices and no financial execution. No live credentials, model calls, notices or transactions are used. The test removes its temporary database and network even after failure; it does not host a service or provision an account.
+
+The workflow's separate runtime-audit job remains a strict release gate and reports the unresolved Circle provider findings independently of build/smoke evidence. A successful build does not mean this gate or financial activation passed. Inspect the actual workflow result for the release commit before claiming container verification; Docker was unavailable on the development host.
+
+To reproduce the packaging checks with Node 22 and Docker:
+
+```sh
+npm ci --prefix worker-runtime --ignore-scripts
+npm test --prefix worker-runtime
+docker build -f Dockerfile.worker -t countersign-worker:test .
+docker build -f Dockerfile.operations-worker -t countersign-operations-worker:test .
+docker pull postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+node scripts/verify-worker-containers.mjs
+npm audit --prefix worker-runtime --omit=dev --audit-level=moderate
+npm audit --prefix worker-runtime/circle --omit=dev --omit=peer --audit-level=moderate
+```
+
+The separate CLI lock applies exact updates for `jayson` 5.0.0, `toml` 5.0.0 and WebSocket 8.x to 8.22.0, removing their reported fixable advisories. CLI imports/help and the fixed executor command contract are checked; real wallet, source/destination and recovery compatibility still require the owner-run deployment exercises. Compiler-only peers are omitted from the Circle runtime while explicit production dependencies remain installed.

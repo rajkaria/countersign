@@ -1,0 +1,22 @@
+{
+  "name": "countersign-worker-runtime",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "pretest": "npm run build",
+    "test": "node --test packaging.test.mjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3",
+    "viem": "2.56.9",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
