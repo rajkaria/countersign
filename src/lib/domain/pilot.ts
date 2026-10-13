@@ -20,7 +20,12 @@ const asset = z.object({
   id,
   label: id,
   decimals: z.number().int().min(0).max(36),
-}).strict();
+  identity: z.object({
+    symbol: id, chainId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), decimals: z.number().int().min(0).max(36),
+  }).strict().optional(),
+}).strict().refine((value) => value.identity === undefined || value.identity.decimals === value.decimals,
+  "Frozen asset identity precision must match its declared units");
 const consentGrant = z.object({
   evidenceId: id,
   grantedAt: date,

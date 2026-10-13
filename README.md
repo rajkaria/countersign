@@ -6,7 +6,7 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
-Version 0.4.0 adds a reproducible reviewer walkthrough, inspectable proposal citations/provenance, production-planner parity in the synthetic demo and persistent-worker expiry/Arc observation checks. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
+Version 0.5.0 adds a private, explicitly opted-in actual-model comparison before database or wallet setup, and an interactive clarification loop that reruns production verification after a human answer. The reproducible reviewer walkthrough, original proposal provenance, production-planner demo and expiry/Arc observation safeguards remain available. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
 
 ## Review in three minutes
 
@@ -14,7 +14,7 @@ Start at [the working walkthrough](https://countersign-jet.vercel.app/review): a
 
 Circle Agent Stack integration is implemented behind reviewed deployment gates. Actual wallet compatibility, delivered USDC, live model quality and real business usage remain unproven. The source remains private pending the owner's public-source/license decision. See [current facts](docs/FACTS.md) and [product vision](VISION.md).
 
-Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. No model, notice or payment request is made by the kit. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
+Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. Capture and export remain local. The separate `run-arms` command can make one external paid model request only with explicit processing/spend opt-ins and private credentials; it never sends a notice or payment. Observed timing, cost and outcomes are not generated. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
 
 [Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
 

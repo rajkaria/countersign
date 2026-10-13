@@ -56,19 +56,19 @@ For context, read [why Countersign](/docs/why-countersign) and [start read-only]
 
 ## Start a local pilot today
 
-The portable pilot kit captures a reproducible comparison without waiting for a database, model account, notification service, or wallet. It makes no network requests and never sends a notice or payment. Operators perform and measure the three workflows themselves; the kit validates and exports their records. This lets a consented review pilot start before financial activation.
+The portable pilot kit captures a reproducible comparison without waiting for a database, notification service or wallet. Capture, blind-context export and rules review are offline. The optional model runner makes one bounded provider call only with separate processing consent, a private key and explicit paid-call opt-in. No command sends a notice or payment. A consented review pilot can therefore start before financial activation.
 
-Run these commands from the application checkout. Keep the capture directory outside that checkout and outside public or shared folders:
+Run these commands from the application checkout. Keep originals and the capture directory outside every Git checkout, including any surrounding private planning repository, and outside public or shared folders:
 
 ```sh
 npm run pilot -- init "$HOME/countersign-pilot"
 ```
 
-The new directory contains `pilot.json`, `case-template.json`, `measurement-template.json`, and a walkthrough. The study is a valid empty draft with no cases or consents. Templates use `null` for missing information: they do not supply identities, sample timings, measured zeros, customer outcomes, or consent. Existing directories and output files are never overwritten. On Unix systems, new directories use mode `0700` and files use `0600`; access-control behavior on other systems still depends on the host. The CLI rejects outputs inside the application source checkout, including paths through existing symlinked parents. JSON inputs and reusable capture outputs have a 20 MB limit.
+The new directory contains `pilot.json`, `case-template.json`, `measurement-template.json`, `arm-input-template.json`, `run-config-template.json`, and a walkthrough. The study is a valid empty draft with no cases or consents; arm/run templates remain incomplete until actual input is supplied. Templates use `null` for missing information: they do not supply identities, sample timings, measured zeros, customer outcomes, or consent. Existing directories and output files are never overwritten. On Unix systems, new directories use mode `0700` and files use `0600`; access-control behavior on other systems still depends on the host. The CLI checks canonical destinations through existing symlinked parents and rejects the application checkout and existing Git ancestors. New model-run input files also must be outside Git. This is a write-time boundary, not protection against later copying or publishing files. JSON inputs and reusable capture outputs have a 20 MB limit.
 
 ## Prepare the held-out study
 
-Fill the study ID and adjudicator ID. Use pseudonymous business, vendor, and case IDs; retain the private mapping separately. Declare both `settlementAsset` and `operatingCostAsset` as objects with `id`, `label`, and `decimals`. One study uses one settlement asset and one cost asset. If cases involve another token, chain, currency, or precision, create a separate study. USD costs and USDC settlement amounts are separate measurements; no conversion or price assumption is applied.
+Fill the study ID and adjudicator ID. Use pseudonymous business, vendor, and case IDs; retain the private mapping separately. Declare both `settlementAsset` and `operatingCostAsset` as objects with `id`, `label`, and `decimals`. An optional `identity` contains exact `symbol`, `chainId`, token `address` and `decimals`; its precision must match the outer asset. Runnable crypto arms require this identity on the frozen settlement asset. It enters the frozen commitment and report; a mutable run config cannot redefine it. Legacy manual/fiat capture may omit it. One study uses one settlement asset and one cost asset. If cases involve another token, chain, currency or precision, create a separate study. USD costs and USDC settlement amounts are separate measurements; no conversion or price assumption is applied.
 
 Complete one case template per obligation and place the objects in `pilot.json`'s `cases` array:
 
@@ -167,3 +167,80 @@ JSON is the authoritative exact-value record. CSV prefixes exact amounts and ide
 The report excludes `not-due`, `unknown`, and `not-observed` from on-time completion denominators, rather than turning missing outcomes into failures or successes. Each cohort's settlement evidence is reported separately; no combined traction total is created. Small samples, real operator feedback, repeat use, false holds, and missed issues should inform the next decision together.
 
 All exports are private by default. A `publicationConsentComplete` flag only describes the supplied active grants for non-synthetic businesses; it is not publication approval, redaction proof, or external validation. No capture, customer capsule, or report is automatically published.
+
+## Local rules-versus-model run
+
+The first owner batch is a genuine record pack with local-analysis consent and independent labels held separately. For the model arm only, add a selected model, private API key, case-bound external-processing consent and approval for one paid call. Database, wallet, contracts and worker hosting are unnecessary for this review comparison. Source authenticity, actor authority and consent scope still require human evidence.
+
+Before freezing, place a strict arm envelope into each selected case's `snapshot.content`:
+
+| Field | Actual contents |
+|---|---|
+| `verification` | Complete normalized `VerificationInput`: tenant, current agreement/invoice/policy, acceptance, allocations/history, exact asset and point-in-time `now` |
+| `originals` | Authorized text/excerpts with `sourceId`, `sourceHash`, `textSha256`, `kind`, `location` and exact `content` |
+
+The business/tenant, vendor, due date and cutoff must match the normalized records; every nested tenant must belong to that business. Unapproved drafts may retain empty approval actors/dates and receive the real verifier's HOLD. No approval is invented.
+
+Each original must cite an existing decision source and frozen evidence ID. `sourceHash` matches that source's original-document hash; `textSha256` hashes the exact UTF-8 text sent and is distinct from a binary PDF/image hash. `kind` is `original-text` or `excerpt`. Label excerpts and preserve their location. Changed hashes, ambiguous duplicates, unavailable sources and future evidence are rejected; context is never silently truncated.
+
+Keep truth labels, acceptable-action adjudication, outcomes and cost evidence separate. The model receives normalized source context, bound original text and the strong deterministic decision/clarification baseline. It receives no case label, incorrect increment, adjudicator ID, consent record, observed outcome or cost. Strict objects reject extra label fields; a human must still prevent later information or adjudication from appearing in source prose.
+
+Complete a copy of `run-config-template.json`:
+
+| Run field | Binding |
+|---|---|
+| `runId` | Stable identity for this deliberately approved attempt; never rename an unknown attempt to conceal a retry |
+| `trustedFrozenCommitment` | Independently retained frozen study commitment |
+| `codeCommit` | Declared full Git SHA, or null; actual runtime source is captured separately |
+| `rulesVersion` | Rule-version declaration, not independent version verification |
+| `assetBinding` | Frozen `studyAssetId` and exact `symbol`, `chainId`, `address`, `decimals`, `termsCurrency` and `invoiceCurrency` |
+| `model` | Owner-selected provider model ID; null is allowed offline |
+| `externalModelConsent` | Null offline; otherwise the separate case/business-bound OpenAI processing grant |
+
+The frozen asset identity, normalized input and run mapping must agree. The settlement label is the symbol or `Test ` followed by it. This single-asset runner rejects USD obligations against USDC and distinct same-symbol tokens; it performs no conversion or token-authenticity check. Full obligation units bind to fixed terms or exact hourly rate times quantity, rather than a smaller partial invoice/request. Incomplete hourly context retains the declared amount basis and missing-information result, not a validated hourly entitlement.
+
+External consent contains `businessId`, `caseId`, `frozenCommitment`, `evidenceId`, `provider: "openai"`, `grantedAt`, `expiresAt` and `revokedAt`. It must be current, unrevoked and bind to the exact case/study. Local analysis and publication do not authorize provider disclosure. Keep grants current: local/external consent and frozen/source bindings are re-read immediately before dispatch and after response.
+
+Give the prior-workflow reviewer only a blind context pack before showing other arms:
+
+```sh
+PILOT_DIR="$HOME/countersign-pilot"
+npm run pilot -- context \
+  "$PILOT_DIR/session-00.json" "YOUR-CASE-ID" \
+  "$PILOT_DIR/run-config.json" "$PILOT_DIR/prior-context-01"
+```
+
+`context.json` contains normalized/original information and commitments, with no labels, rules answers or model output. Its prior-workflow measurement draft invents no decision, time or cost. Observe the operator's normal review, counterbalance order across new cases where practical, and disclose learning/remembered-case effects. The command cannot guarantee human blinding by itself.
+
+Run the actual strong rules offline:
+
+```sh
+npm run pilot -- rules \
+  "$PILOT_DIR/session-00.json" "YOUR-CASE-ID" \
+  "$PILOT_DIR/run-config.json" "$PILOT_DIR/rules-01"
+```
+
+The baseline calls the unchanged product verifier. Its deterministic clarification questions name actual authorized acceptors, obligation, invoice reference, terms version and blocking condition. The model receives the same strong baseline; vague rules questions cannot manufacture an agent advantage.
+
+Only after privately configuring `COUNTERSIGN_PILOT_OPENAI_API_KEY` and approving provider disclosure and one paid call:
+
+```sh
+npm run pilot -- run-arms \
+  "$PILOT_DIR/session-00.json" "YOUR-CASE-ID" \
+  "$PILOT_DIR/run-config.json" "$PILOT_DIR/model-01" \
+  --allow-external-model --allow-paid-call
+```
+
+Keep the key out of JSON, command arguments, chat and git. The existing proposal-only adapter has no tools or model-controlled URLs, uses the fixed Responses endpoint with `store=false`, and accepts only deterministic actions and available citations. Each run permits one request, up to 50 evidence records, 20,000 characters per combined source record, 100,000 evidence characters, 120,000 serialized request characters, 1,000 output tokens, a 25-second adapter timeout and 1 MB provider JSON. These limits establish no dollar price; actual cost remains unknown until supplied.
+
+A fixed private registry at `$HOME/.local/state/countersign/pilot-model-runs` is independent of session/output folders. Exclusive reservations are flushed to disk, with directory flushing where supported, before dispatch. Reusing the frozen-study/case/run identity is refused under a new output folder. There is no automatic retry/reset. Crashes, timeouts, invalid responses, changed sources and revoked consent leave reserved unknown/unusable attempts. Inspect original provider evidence before approving a genuinely new attempt. Carry the private registry when moving hosts; another host cannot infer prior reservations.
+
+Artifacts retain the exact prepared snapshot, real rules result, private request/response evidence, commitments, policy/terms versions, actual Git HEAD/dirty state and critical source-file hashes. A declared SHA mismatch fails when actual HEAD exists; an archive records unavailable rather than verified. Dirty code stays visibly dirty. Hashes and version declarations establish consistency, not authentic sources, correct labels or a clean reproducible release.
+
+`result.json` distinguishes `complete`, `rules-only` and `unknown`. Failed-response evidence retains HTTP status and bounded provider JSON with credential echoes redacted. Executable errors use fixed public text rather than private JSON, arbitrary keys, identifiers or paths.
+
+`rulesQuestions`, agent `questions` and `answer-template.json` bind unanswered questions to run/case/input/evidence commitments, obligation and terms version. Actual answers require evidence, actor, statement, kind and timestamp. Prose, activity and a proposed question never become acceptance automatically. Evaluate legitimately updated records as a separate newly frozen case.
+
+The rules and agent measurement drafts retain actual suggested actions/references but leave operator, human timing and monetary cost null. Complete them from observation/billing evidence, then use existing `record` and three-arm `export`. Unknown agent results have null action and cannot count as completed agent arms. Model latency is not human work; tokens are not monetary cost. No settlement, due success, prevention or repeat use is generated.
+
+Assess agency through actionable correct missing conditions, citation fidelity, necessary lookups and measured operator effort versus strong rules. The same final action may accompany a useful question; different prose may add no value. Neither prose length nor the existence of a model call establishes usefulness.

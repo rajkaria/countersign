@@ -1,6 +1,6 @@
 # Release verification and activation
 
-Release date: 13 October 2026. Software version: 0.4.0. Private source: https://github.com/rajkaria/countersign. Web deployment: https://countersign-jet.vercel.app.
+Release date: 13 October 2026. Software version: 0.5.0. Private source: https://github.com/rajkaria/countersign. Web deployment: https://countersign-jet.vercel.app.
 
 ## Actual deployment
 
@@ -61,6 +61,12 @@ Workers recheck cached deployment review expiry before new submission, including
 
 A privately retained narrated/captioned screen recording is 176.890 seconds, 1920×1080 at 30fps. Its persistent synthetic label, source, transcript and export verification are supplied. No video upload, live model, customer or Circle proof is inferred.
 
+## Additional October 13 evidence-first improvement
+
+The portable `pilot run-arms` path compares production deterministic verification with an actual proposal-only model on an exact frozen consented case without database or wallet setup. Private external-processing consent and explicit paid-call opt-in are required; request reservation precedes the single model call. Exact originals are source/hash-bound. Adjudication labels/outcomes never enter model context; failures and uncertain responses remain recorded. Real operator timing/cost and business outcomes remain missing until supplied and measured. No notice or financial executor is reachable through this command.
+
+The reviewer clarification loop shows the same strong-rules baseline and an authored source-cited question, lets a reviewer supply synthetic activity/unauthorized/stale/current authorized acceptance, and reruns production verification. A correct answer may establish eligibility; Observe mode still gives no execution authority. Amount, terms, currency, recipient and original context remain inspectable. It is not an actual-model usefulness experiment.
+
 ## Earlier October 13 completion
 
 Owners have a console **Setup** view with redacted configuration, original-record steps, a database-only readback and separate external financial prerequisites. Public readiness verifies the exact five-migration registry and expected security-control columns; a reachable but unmigrated database cannot pass. The logged-out console explains infrastructure setup and links to the isolated demo.
@@ -79,9 +85,9 @@ Redacted activation diagnostics, explicit read-only probes, five migrations, sep
 
 ## Verified checks
 
-On 13 October 2026, Node 22 verification passed TypeScript, ESLint, 257 application tests across 34 files, 32 Foundry tests and the production Next.js 16.3.8 build. Foundry includes three 512-run fuzz tests and two 128-run stateful invariants with 8,192 calls each. Boundary and whitespace checks passed. Four dedicated worker packaging tests pass, including bundled entrypoint startup and dependency separation.
+On 13 October 2026, Node 22 verification passed TypeScript, ESLint, 287 application tests across 35 files, 32 Foundry tests and the production Next.js 16.3.8 build. Foundry includes three 512-run fuzz tests and two 128-run stateful invariants with 8,192 calls each. Boundary and whitespace checks passed. Four dedicated worker packaging tests pass, including bundled entrypoint startup and dependency separation.
 
-Forty-four desktop/mobile Playwright cases pass locally. They cover public navigation and all 32 handbook guides, anonymous API boundaries, keyboard review, search/raw/LLM parity, isolated operations preferences/cases/exports, versioned hourly/partial retry payloads, invoice-extraction provenance, one-time capability clearing, logout and late-tenant response isolation. New cases also cover reviewer trace/downloads, exact demo currency/dates/unapproved sources, recorded proposal/source inspection and current/stale model bindings. Console transports are explicitly synthetic fixtures; these tests do not establish a live database, model call or financial compatibility.
+Forty-six desktop/mobile Playwright cases pass locally. They cover public navigation and all 32 handbook guides, anonymous API boundaries, keyboard review, search/raw/LLM parity, isolated operations preferences/cases/exports, versioned hourly/partial retry payloads, invoice-extraction provenance, one-time capability clearing, logout and late-tenant response isolation. New cases also cover reviewer trace/downloads, exact demo currency/dates/unapproved sources, recorded proposal/source inspection, current/stale model bindings and the explicit-answer clarification loop with stale-result clearing. Twenty-two integration/executable tests cover the portable model runner, including consent, privacy, source/time/currency/token/code bindings, blinded prior context and uncertain reservations; all model transports are injected fixtures. Console transports are explicitly synthetic fixtures; these tests do not establish a live database, model call or financial compatibility.
 
 Reviewer, reviewer handbook and settled landing states pass scoped automated WCAG 2A/AA/2.1AA and overflow checks at 1440, 390 and 320 pixels using reduced-motion review. Initial opacity animations can yield transient contrast findings before settling. The October 6 operations demo passed scoped automated WCAG 2A/AA/2.1AA and overflow checks at 1440, 390 and 320 pixels. The new setup view has desktop/mobile overflow regression coverage. Neither establishes comprehensive accessibility certification.
 
@@ -90,6 +96,10 @@ Web production dependency audit reports zero findings. The full web-development 
 These checks concern implemented software and isolated fixtures. They do not substitute for the external activation steps above.
 
 ## Hosting and CI readback
+
+The additional 0.5.0 source passes the full local Node 22 gate, four worker packaging cases and all 46 desktop/mobile browser cases. New clarification states pass scoped WCAG 2A/AA/2.1AA/no-overflow checks at 1440/390/320 pixels. Hosted and live readbacks for the exact release revision are retained in the private handoff; earlier hosted evidence below remains explicitly dated. No paid model request or financial activation is inferred.
+
+### Earlier 0.4.0 hosted evidence
 
 The 0.4.0 implementation [Verify run](https://github.com/rajkaria/countersign/actions/runs/38305469199) succeeds at 1392c9c; the presentation revision [Verify run](https://github.com/rajkaria/countersign/actions/runs/38306173639) succeeds at 0117361. Both run a clean installation, the full Node 22 gate and 44 desktop/mobile browser cases. The presentation revision's actual [container build/smoke](https://github.com/rajkaria/countersign/actions/runs/38306173630/job/115000650767) succeeds; its separate strict provider audit fails on the disclosed dependency findings. All 44 browser cases also pass against the deployed public alias. Health now derives its release version from package.json; release readbacks check that it matches the shipped package instead of retaining a hardcoded previous version. Exact final metadata-fix deployment/CI readbacks are retained in the private handoff.
 

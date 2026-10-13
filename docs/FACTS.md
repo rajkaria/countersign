@@ -1,6 +1,6 @@
 # Release status
 
-Updated 13 October 2026 for software version 0.4.0. This page distinguishes software capability from externally verified production operation.
+Updated 13 October 2026 for software version 0.5.0. This page distinguishes software capability from externally verified production operation.
 
 ## Current hosting
 
@@ -27,13 +27,16 @@ The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.ver
 - Production-planner parity in the isolated demo, exact currencies and dates, source-required custom invoices and clearly authored proposal fixtures. An authored model fixture is never presented as an executed model response.
 - Persistent-worker review expiry rechecked before new submissions, with reconciliation retained across restart; conservative Arc native-USDC observation and unique matching of outgoing effects to operations.
 
+- A private actual-model comparison runner over frozen consented originals, independent of database/wallet setup, with explicit external-processing and paid-call opt-ins, durable one-call reservation and incomplete measurement drafts. No actual model run or customer result is established by its fixture tests.
+- An interactive source-cited clarification comparison that re-verifies human answers while preserving amount, terms, recipient and Observe-mode authority. Sample questions are authored fixtures, not executed model output.
+
 ## Not established by this release
 
 - Circle wallet provisioning and end-to-end compatibility with the deployed Safe module.
 - Deployed and independently reviewed contracts, real business payment settlement or tested mainnet delegation.
 - Funded payment protection, agreed legal terms or an appointed independent claims reviewer.
 - Independent customers, measured time savings, revenue, or repeat business payment cycles.
-- A publicly hosted approved event video. A narrated/captioned 176.89-second software recording exists privately; it is synthetic and is not live Circle, customer or model-quality evidence.
+- A publicly hosted approved event video. A narrated/captioned software recording below three minutes exists privately; it is synthetic and is not live Circle, customer or model-quality evidence.
 - A public-source event submission, accepted optional OSS commitment, or submitted form.
 - A clean financial provider dependency audit: unpatched Circle CLI dependency findings remain a separate financial activation gate. See [security review](/docs/security-review).
 

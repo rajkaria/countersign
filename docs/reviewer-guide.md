@@ -6,13 +6,36 @@ Countersign connects agreements, invoices, authorized acceptance and payment his
 
 Open the [product walkthrough](https://countersign-jet.vercel.app/review). No wallet or account is required. Each case uses the same pure verifier as the authenticated server. The fixed snapshot, acceptances, addresses and allocation records are **synthetic fixtures**.
 
-1. **Activity is not acceptance.** Start with activity-only evidence and see ASK. Add synthetic owner acceptance; the verifier becomes eligible. No payment is created.
+1. **Activity is not acceptance.** Start with activity-only evidence and see ASK. Compare the strong rules prompt with a recorded clarification fixture, then submit an explicit synthetic answer. A named acceptor's current-version acceptance makes the invoice eligible in Observe mode; a delivery update, decline, vendor approval or different-version answer leaves the acceptance requirement unresolved. No payment is created.
 2. **Corrections need fresh authority.** Inspect version 2 terms with version 1 acceptance. Apply synthetic version 2 acceptance and re-run the same checks.
 3. **Pay the remainder exactly once.** Inspect a 400 USDC request against an 800 USDC obligation. Record a synthetic 400 allocation; the second request remains 400. The current invoice name does not erase the prior allocation.
 4. **Renaming does not create a debt.** Rename an already allocated invoice. The same obligation remains held.
 5. **A timeout is not permission to retry.** Run the execution reducer. The original operation remains uncertain; another submission is rejected until reconciliation.
 
 Use **Inspect exact verifier input & output** and **Download fixture trace** to inspect the complete reducer input and output. These JSON files are reproducible demonstrations, not signed receipts, customer records or provider observations. Reducer eligibility is distinct from permitted production execution.
+
+## Inspect a question, answer and re-verification
+
+The first case presents a **frozen clarification comparison**. Its fictional agreement covers a responsive dashboard and keyboard navigation review. A handoff note says that work was merged and a review sent to the customer; it does not contain the named customer's acceptance.
+
+The strong rules baseline already names the authorized acceptor, exact obligation and current agreement version. The recorded proposal fixture ties its question to the specific deliverables and the unresolved review described in the source text. **No model was executed to create this public fixture.** A strong rules prompt can obtain the same valid answer; a more detailed question alone does not establish model advantage.
+
+1. Inspect the cited original text and exact SHA-256 values. The normalized verifier input and model evidence are included in one frozen context commitment before either approach. Both start at ASK.
+2. Choose a fictional responder, explicit answer and terms version. The default delivery update supplies no acceptance. These controls simulate identities and do not authenticate a real user.
+3. Confirm that the answer is fictional, then select **Submit synthetic answer**. Only this explicit submission creates the browser-local answer evidence; the recorded proposal cannot answer its own question.
+4. Try `vendor-1` acceptance or an answer for version 2. The actual verifier keeps ASK because the current authorized acceptor and approved version do not match. Declining acceptance also keeps ASK.
+5. Submit `owner-1` acceptance for version 1. The verifier changes ASK → PAY eligibility, while `executable` stays false in Observe mode. Amount, invoice, approved terms, destination, policy and prior allocations remain unchanged. Both comparison approaches receive the same answer and re-verification result.
+6. **Download clarification trace** preserves the original context, both prompts, the separate submitted answer with source identity and hash, and the before/after inputs, findings and decision diff. The original context commitment remains unchanged after the answer. Editing responder, answer, version or acknowledgement clears the previous result until a new answer is submitted. **Reset case** clears the answer and returns to the original gap.
+
+An explicit answer type is used instead of interpreting free text as approval. In production, obtaining and recording acceptance still requires the actual authenticated authorized customer and the current obligation/terms binding; the fictional identity selector is not that authentication workflow.
+
+## What would establish incremental agent value?
+
+The useful hypothesis is that a model can connect ambiguous original language to the exact missing condition and ask a question that reduces operator investigation. It is not allowed to relax a rule or independently declare the work accepted. An explanation of the existing ASK result is insufficient evidence of that hypothesis.
+
+Use held-out, consented original text and identical point-in-time inputs for prior workflow, strong rules, and rules plus agent. Give the rules baseline the same known approver, obligation, versions and constraints. Preserve actual model/provider/prompt identity, context commitments, cited proposed questions, separately recorded human answers and deterministic re-verification. Record correctly identified missing conditions, citation fidelity, incorrect assertions, additional operator lookups or actual review time with evidence. Do not send outcome labels to the model or infer a benefit from polished prose, identical final actions or synthetic timings.
+
+The public comparison implements this inspection flow, not a completed experiment. Live question quality, measured operator benefit and real customer outcomes remain unproven. The portable pilot runner and capture instructions are described in [evaluation](/docs/evaluation).
 
 ## Explore the product
 
