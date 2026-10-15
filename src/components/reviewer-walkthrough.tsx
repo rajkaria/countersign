@@ -62,6 +62,7 @@ export function ReviewerWalkthrough() {
   }
   return (
     <section
+      id="walkthrough"
       className="review-lab"
       aria-label="Reproducible synthetic walkthrough"
     >

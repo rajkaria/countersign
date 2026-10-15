@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { guides } from "../../src/lib/content/guides";
+import { guides, siteOrigin } from "../../src/lib/content/guides";
 const { version: expectedVersion } = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 ) as { version: string };
@@ -114,4 +114,42 @@ test("handbook search, anchors, raw Markdown and LLM corpus agree", async ({
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
   ).toBeTruthy();
+});
+
+test("canonical metadata, structured data and public discovery use the same origin", async ({
+  page,
+  request,
+}) => {
+  for (const route of ["/", "/review", "/docs/verification"]) {
+    await page.goto(route);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      `${siteOrigin}${route === "/" ? "" : route}`,
+    );
+  }
+
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    "content",
+    `${siteOrigin}/docs/verification`,
+  );
+  const article = JSON.parse(
+    (await page.locator('script[type="application/ld+json"]').textContent())!,
+  );
+  expect(article.url).toBe(`${siteOrigin}/docs/verification`);
+  expect(article.isPartOf.url).toBe(`${siteOrigin}/docs`);
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status()).toBe(200);
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toContain(`<loc>${siteOrigin}/docs/verification</loc>`);
+  expect(sitemapText).toContain(`<loc>${siteOrigin}/review</loc>`);
+  expect(await (await request.get("/robots.txt")).text()).toContain(
+    `Sitemap: ${siteOrigin}/sitemap.xml`,
+  );
+  expect(await (await request.get("/llms.txt")).text()).toContain(
+    `${siteOrigin}/docs/raw/verification`,
+  );
+  expect(await (await request.get("/llms-full.txt")).text()).toContain(
+    `Source: ${siteOrigin}/docs/verification\nMarkdown: ${siteOrigin}/docs/raw/verification\n`,
+  );
 });

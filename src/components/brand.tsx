@@ -24,7 +24,7 @@ export function SiteHeader() {
         <Link href="/docs">Documentation</Link>
         <Link href="/review">Product walkthrough</Link>
       </nav>
-      <Link href="/workspace" className="button button-small">
+      <Link href="/review" className="button button-small">
         Explore the demo <span aria-hidden="true">↗</span>
       </Link>
     </header>

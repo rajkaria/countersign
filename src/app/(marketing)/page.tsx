@@ -90,7 +90,7 @@ export default function Home() {
               so your next payment has a reason behind it.
             </p>
             <div className="landing-actions">
-              <Link href="/workspace" className="button">
+              <Link href="/review" className="button">
                 Explore the demo <ArrowUpRight size={18} />
               </Link>
               <Link href="/docs/getting-started" className="landing-secondary">
@@ -488,7 +488,7 @@ export default function Home() {
             <em>the full picture.</em>
           </h2>
           <div className="landing-actions">
-            <Link href="/workspace" className="button">
+            <Link href="/review" className="button">
               Explore the demo <ArrowUpRight size={18} />
             </Link>
             <Link href="/docs/getting-started" className="landing-secondary">

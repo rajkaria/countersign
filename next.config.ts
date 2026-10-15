@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
   poweredByHeader: false,
+  async redirects() { return [{
+    source: '/:path*',
+    has: [{ type: 'host' as const, value: 'countersign-jet\\.vercel\\.app' }],
+    destination: 'https://www.usecountersign.xyz/:path*',
+    permanent: true,
+  }]; },
   async headers() { return [{source: '/:path*', headers: [
     {key:'X-Content-Type-Options',value:'nosniff'},
     {key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},

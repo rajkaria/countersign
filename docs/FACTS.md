@@ -1,12 +1,14 @@
 # Release status
 
-Updated 16 October 2026 for software version 0.6.1. This page distinguishes software capability from externally verified production operation.
+Updated 16 October 2026 for software version 0.7.0. This page distinguishes software capability from externally verified production operation.
 
 ## Current hosting
 
-The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.vercel.app). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). A dedicated Neon PostgreSQL database is provisioned through Vercel, all five migrations are applied, and production readiness returns 200 with the schema verified. Authenticated synthetic records, role boundaries, tenant isolation and four encrypted document roundtrips have been exercised against this deployment. A logical backup was restored into a separate database; fingerprints and authenticated plaintext recovery match. These checks use generated records, not customer data, an independent audit or provider PITR evidence. Financial execution remains disabled.
+The demo is live at [usecountersign.xyz](https://usecountersign.xyz), which redirects to the canonical [www.usecountersign.xyz](https://www.usecountersign.xyz). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). A dedicated Neon PostgreSQL database is provisioned through Vercel, all five migrations are applied, and production readiness returns 200 with the schema verified. Authenticated synthetic records, role boundaries, tenant isolation and four encrypted document roundtrips have been exercised against this deployment. A logical backup was restored into a separate database; fingerprints and authenticated plaintext recovery match. These checks use generated records, not customer data, an independent audit or provider PITR evidence. Financial execution remains disabled.
 
 One operations-only worker is hosted separately on Railway with fixed CPU/memory limits and a demo expiry of 18 October 2026, 20:00 UTC. It carries no Circle profile or verifier key; notices and financial execution are disabled. This host does not establish unattended payment execution. Continued hosting after the demo window needs an explicit operating decision.
+
+The home-page demo button opens the wallet-free [guided walkthrough](/review). It includes five reproducible browser cases and a separate recorded-evidence section summarizing the completed synthetic DeepSeek request, manual Arc transfer and persistence/restore checks. Inspect or download the authored summary without contacting a model, wallet or payment provider. The interactive fixtures and recorded checks remain distinct.
 
 ## Implemented software
 

@@ -10,7 +10,7 @@ Read-only onboarding should be useful before any authority is granted: organize 
 
 The model helps interpret sources and propose permitted actions. It cannot approve its own evidence, activate terms, change a trusted recipient, enlarge a budget or release funds. When a model is useful, its contribution should be visible against a strong rules baseline: a relevant source association, a well-targeted question or a better admissible suggestion. An explanation by itself is not proof of better judgment.
 
-Current implemented capabilities and externally unverified operations are listed in the [release status](https://countersign-jet.vercel.app/docs/release-status). The live software demo is synthetic. Actual customer usage, measured savings, Circle/Safe compatibility, live payment operation and funded protection are not established by passing software tests.
+Current implemented capabilities and externally unverified operations are listed in the [release status](https://www.usecountersign.xyz/docs/release-status). The live software demo is synthetic. Actual customer usage, measured savings, Circle/Safe compatibility, live payment operation and funded protection are not established by passing software tests.
 
 ## Prove usefulness before expanding
 

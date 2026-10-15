@@ -46,7 +46,7 @@ test("unauthenticated reviewer can reproduce cases and download exact fixture ev
     "Repeat submission rejected",
   );
   await page.getByRole("button", { name: /Inspect exact/ }).click();
-  await expect(page.locator(".review-source")).toContainText(
+  await expect(page.getByLabel("Reproducible synthetic walkthrough").locator(".review-source")).toContainText(
     "verifyObligation",
   );
   const downloadEvent = page.waitForEvent("download");

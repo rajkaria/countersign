@@ -44,6 +44,8 @@ The verify gate runs TypeScript, lint, Vitest, Foundry and a production Next bui
 
 Connect the private GitHub repository or run vercel --prod from this application root. Set APP_ORIGIN to the canonical HTTPS deployment origin before enabling authentication. Add secrets through the Vercel environment UI or CLI, then redeploy. Never expose database, worker, document, model or Circle credentials in NEXT_PUBLIC variables.
 
+The primary deployment uses `APP_ORIGIN=https://www.usecountersign.xyz` without a trailing slash. The apex `https://usecountersign.xyz` redirects to this host. Use the same canonical origin on the web host and operations worker so sign-in messages and review links identify the same site. Public metadata, structured article data, sitemap, robots and LLM source links derive from APP_ORIGIN; a build without this setting uses the primary domain. An independently hosted deployment can set its own origin. Keep localhost origins limited to local development and rebuild/redeploy after changing the hosted origin.
+
 Read /api/health for application availability and /api/ready for database readiness. A healthy static site is not proof that the payment executor is configured.
 
 ## Operations

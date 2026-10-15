@@ -1,5 +1,5 @@
 export const siteOrigin = (
-  process.env.APP_ORIGIN || "https://countersign-jet.vercel.app"
+  process.env.APP_ORIGIN || "https://www.usecountersign.xyz"
 ).replace(/\/$/, "");
 export const guideGroups = [
   "Start here",

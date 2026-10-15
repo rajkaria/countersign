@@ -522,3 +522,29 @@
     padding: 18px;
   }
 }
+
+.review-start{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-top:28px;font-size:13px;font-weight:650}
+.review-start .button{background:#173e31;color:#fff;border-color:#173e31;text-decoration:none}
+#walkthrough,#recorded-evidence{scroll-margin-top:24px}
+.recorded-evidence{margin-top:48px;padding:32px;border:1px solid #cbd8ca;background:#eef3e9}
+.recorded-heading{display:flex;justify-content:space-between;align-items:start;gap:24px;margin-bottom:26px}
+.recorded-heading h2{font-size:clamp(30px,4vw,46px);letter-spacing:-.045em;margin:0}
+.recorded-heading p:not(.review-kicker){font-size:14px;line-height:1.7;color:#52615c;max-width:580px}
+.recorded-heading .review-proof-tag{flex-shrink:0}
+.recorded-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.recorded-grid article{min-width:0;padding:24px;background:#fff;border:1px solid #d4dfce}
+.recorded-grid article>svg{width:25px;height:25px;color:#35664e;margin-bottom:20px}
+.recorded-grid h3{font-size:21px;line-height:1.25;letter-spacing:-.03em;margin:0 0 16px}
+.recorded-grid p,.recorded-grid li{font-size:13px;line-height:1.75;color:#46594b}
+.recorded-grid ul{padding-left:18px;overflow-wrap:anywhere}
+.recorded-outcome{display:block;font-size:27px;letter-spacing:-.035em;margin:24px 0 14px;color:#125a42}
+.recorded-grid dl{border-top:1px solid #dce4d8;padding-top:15px;margin:20px 0;font-size:12px}
+.recorded-grid dl>div{display:flex;justify-content:space-between;gap:15px;margin:10px 0}
+.recorded-grid dt{color:#5e6b60}.recorded-grid dd{margin:0;font-weight:650;text-align:right;overflow-wrap:anywhere}
+.recorded-grid a{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;color:#125a42;text-underline-offset:3px}
+.recorded-grid p.recorded-note{font-size:11px;line-height:1.65;color:#5a685b;margin-top:22px}
+.recorded-actions{display:flex;align-items:start;gap:24px;flex-wrap:wrap;margin:20px 0 8px}
+.recorded-actions details{min-width:0;flex:1}.recorded-actions summary{cursor:pointer;font-size:12px;font-weight:650;padding:10px 0;color:#254c3d}
+.recorded-actions pre{max-width:100%}
+@media(max-width:1000px){.recorded-grid{grid-template-columns:1fr}.recorded-heading{flex-direction:column}.recorded-evidence{padding:24px}}
+@media(max-width:500px){.recorded-evidence{padding:22px 18px;margin-top:30px}.recorded-grid article{padding:20px}.recorded-actions{flex-direction:column;gap:8px}.recorded-actions details{width:100%}}

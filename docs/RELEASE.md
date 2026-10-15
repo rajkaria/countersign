@@ -1,6 +1,14 @@
 # Release verification and activation
 
-## 16 October 2026 — 0.6.1 activation continuation
+## 16 October 2026 — 0.7.0 domain and demo completion
+
+The canonical URL is https://www.usecountersign.xyz, with the owner's Vercel apex redirect from usecountersign.xyz. Current metadata, structured data, sitemap, robots, LLM links and authentication origin agree. The old Vercel alias redirects to the canonical host so browser sign-in begins on the permitted origin.
+
+The home-page demo button now opens /review. Its five production-verifier scenarios remain wallet-free; a separate recorded-evidence section summarizes the actual synthetic DeepSeek request, separate manual local-wallet test and persisted/restored synthetic originals. The inspect/download summary contains no credentials, private originals, sessions or payment authority. It does not make a new model request, chain request or payment. Original provider payloads and the full study pack remain private.
+
+The assembled source passes 305 application tests / 37 files, 32 Foundry contract tests, TypeScript, lint, production build and repository boundary checks. All 64 desktop/mobile browser cases pass locally. New coverage checks the wallet-free entry, recorded-summary inspection/download and no-provider side effects, narrow-screen layout, canonical metadata, structured data, sitemap, robots and LLM parity. A read-only local host check confirms only the exact old Vercel alias redirects, with path/query preserved; unrelated hosts and localhost remain unchanged. Hosted and live final-revision results are retained in the private handoff.
+
+## Earlier 16 October 2026 — 0.6.1 activation continuation
 
 External EOA wallets can now sign in by copying an exact short-lived challenge, signing locally and pasting the signature. Server verification and the normal HttpOnly session remain unchanged. Editing the address invalidates outstanding challenges; expiry and stale responses cannot reuse a previous message. No private key or recovery phrase is requested.
 

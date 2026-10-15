@@ -6,21 +6,21 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
-Version 0.6.1 supports DeepSeek and OpenAI, a private explicitly opted-in actual-model comparison, external EOA sign-in and a clarification loop that reruns deterministic verification after a human answer. A dedicated database and bounded operations host are active with explicitly synthetic records; financial execution remains gated. The reproducible reviewer walkthrough, original proposal provenance, production-planner demo and expiry/Arc observation safeguards remain available. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
+Version 0.7.0 supports DeepSeek and OpenAI, a private explicitly opted-in actual-model comparison, external EOA sign-in and a clarification loop that reruns deterministic verification after a human answer. A dedicated database and bounded operations host are active with explicitly synthetic records; financial execution remains gated. The reproducible reviewer walkthrough, original proposal provenance, production-planner demo and expiry/Arc observation safeguards remain available. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
 
 ## Review in three minutes
 
-Start at [the working walkthrough](https://countersign-jet.vercel.app/review): activity versus acceptance, fresh authority after corrections, exact partial allocations, renamed duplicates and operation-preserving timeout recovery. Each case runs production reducers against explicitly synthetic inputs. Inspect or download the full input/output trace, then open [the source and evidence guide](docs/reviewer-guide.md). No wallet is required.
+Start at [the working walkthrough](https://www.usecountersign.xyz/review): activity versus acceptance, fresh authority after corrections, exact partial allocations, renamed duplicates and operation-preserving timeout recovery. Each case runs production reducers against explicitly synthetic inputs. Inspect or download the full input/output trace, then open [the source and evidence guide](docs/reviewer-guide.md). No wallet is required.
 
 Circle Agent Stack integration is implemented behind reviewed deployment gates. Circle Agent Wallet compatibility, invoice execution, measured model benefit and real business usage remain unproven. A separate manual local-wallet Arc transfer and one synthetic DeepSeek request are recorded compatibility checks. The source remains private pending the owner's public-source/license decision. See [current facts](docs/FACTS.md) and [product vision](VISION.md).
 
 Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. Capture and export remain local. The separate `run-arms` command can make one external paid model request only with explicit processing/spend opt-ins and private credentials; it never sends a notice or payment. Observed timing, cost and outcomes are not generated. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
 
-[Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
+[Live demo](https://www.usecountersign.xyz) · [Release verification and activation](docs/RELEASE.md)
 
 The operating desk combines due dates, settled and committed balances, exception owners, reminder preferences and accounting period exports. Hourly agreements, versioned invoice corrections and exact partial-payment requests are available through the authenticated console. Optional agreement/invoice extraction stays proposal-only and links to the complete original. [DeepSeek or OpenAI model configuration](docs/deployment.md#optional-model-provider) supports the web assistant and private one-call pilot with provider/model consent binding; no key or paid-provider proof is supplied by source code.
 
-[Explore the operations demo](https://countersign-jet.vercel.app/workspace/operations) · [Activate a real workspace](docs/activation.md) · [Operations desk guide](docs/operations-desk.md)
+[Explore the operations demo](https://www.usecountersign.xyz/workspace/operations) · [Activate a real workspace](docs/activation.md) · [Operations desk guide](docs/operations-desk.md)
 
 ## Product preview
 
