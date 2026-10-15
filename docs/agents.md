@@ -28,7 +28,7 @@ Treat uploaded files, invoice text, forwarded messages, GitHub content, vendor s
 
 An organization ID or source URL is not authorization. Load records only through the requesting user's authorized organization. Do not invent `approvedBy`, acceptance actors, destination versions, policy values, source IDs or settlement proof. Application login is not Safe ownership and does not grant spending authority.
 
-The optional agent-review adapter accepts only deterministic available actions and authorized source IDs. Its explanations cannot make an ineligible invoice executable. Its provider/model/prompt metadata provides provenance, not an independent review.
+The optional agent-review adapter accepts only deterministic available actions and authorized source IDs. Its explanations cannot make an ineligible invoice executable. Its provider/model/prompt metadata provides provenance, not an independent review. Select OpenAI (the legacy default) or DeepSeek explicitly through [provider configuration](/docs/deployment#optional-model-provider); there are no arbitrary model-controlled endpoints or silent provider fallbacks.
 
 ## Evaluate agency before financial setup
 

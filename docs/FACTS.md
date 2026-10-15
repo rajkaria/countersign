@@ -1,10 +1,10 @@
 # Release status
 
-Updated 13 October 2026 for software version 0.5.0. This page distinguishes software capability from externally verified production operation.
+Updated 16 October 2026 for software version 0.6.0. This page distinguishes software capability from externally verified production operation.
 
 ## Current hosting
 
-The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.vercel.app). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). The production database and payment worker are not provisioned; real-workspace operations return a configuration error until dedicated persistence is connected. The demo remains available.
+The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.vercel.app). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). A dedicated Neon PostgreSQL database is provisioned through Vercel, all five migrations are applied, and production readiness returns 200 with the schema verified. Financial execution remains disabled. Configuration and schema readback do not establish tenant isolation, restore, customer usage or payment compatibility.
 
 ## Implemented software
 
@@ -29,6 +29,8 @@ The site is deployed at [countersign-jet.vercel.app](https://countersign-jet.ver
 
 - A private actual-model comparison runner over frozen consented originals, independent of database/wallet setup, with explicit external-processing and paid-call opt-ins, durable one-call reservation and incomplete measurement drafts. No actual model run or customer result is established by its fixture tests.
 - An interactive source-cited clarification comparison that re-verifies human answers while preserving amount, terms, recipient and Observe-mode authority. Sample questions are authored fixtures, not executed model output.
+- Explicit OpenAI and DeepSeek provider selection with fixed endpoints, validated structured proposals and provider/model-bound pilot processing consent. DeepSeek Flash supports text, CSV, PNG and JPEG; PDF input is rejected before disclosure. Read-only DeepSeek model access is verified; generation and usefulness require their own evidence.
+- A private, explicitly hypothetical business pack with five synthetic cases, complete text originals and reproducible offline context/rules outputs. These examples are not a real business, independent adjudication, measured utility or traction.
 
 ## Not established by this release
 

@@ -6,6 +6,7 @@ import { commitment } from "../domain/receipt";
 import { createPilotTemplates, inspectPilot, type PilotSession } from "../domain/pilot";
 import { decisionEvidence, proposeDecisionWithModel } from "../integrations/agent";
 import { boundedJson, type Fetcher } from "../integrations/http";
+import { modelEndpoint, modelProviderSchema, modelSelectionSchema } from "../integrations/model-provider";
 
 const id = z.string().trim().min(1).max(200);
 const date = z.string().datetime({ offset: true });
@@ -56,18 +57,19 @@ export const pilotArmInputSchema = z.object({
 }).strict();
 const externalConsent = z.object({
   businessId: id, caseId: id, frozenCommitment: z.string().regex(/^0x[0-9a-f]{64}$/),
-  evidenceId: id, provider: z.literal("openai"), grantedAt: date, expiresAt: date, revokedAt: date.nullable(),
+  evidenceId: id, provider: modelProviderSchema, model: id.optional(), grantedAt: date, expiresAt: date, revokedAt: date.nullable(),
 }).strict();
 export const pilotRunConfigSchema = z.object({
   schemaVersion: z.literal(1), runId: id, trustedFrozenCommitment: z.string().regex(/^0x[0-9a-f]{64}$/),
   codeCommit: z.string().regex(/^[0-9a-f]{40}$/).nullable(), rulesVersion: id,
   assetBinding: z.object({ studyAssetId: id, symbol: id, chainId: version, address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), decimals: z.number().int().min(0).max(36), termsCurrency: id, invoiceCurrency: id }).strict(),
+  provider: modelProviderSchema.default("openai"),
   model: z.string().trim().min(1).max(100).nullable(), externalModelConsent: externalConsent.nullable(),
 }).strict();
 export function createArmTemplates() {
   return {
     input: { verification: null, originals: [] },
-    config: { schemaVersion: 1, runId: null, trustedFrozenCommitment: null, codeCommit: null, rulesVersion: null, assetBinding: null, model: null, externalModelConsent: null },
+    config: { schemaVersion: 1, runId: null, trustedFrozenCommitment: null, codeCommit: null, rulesVersion: null, assetBinding: null, provider: "openai", model: null, externalModelConsent: null },
   };
 }
 const normalizeHash = (value: string) => value.replace(/^0x/, "").toLowerCase();
@@ -177,10 +179,13 @@ export function preparePilotArms(value: unknown, caseId: string, rawConfig: unkn
   if (withModel) {
     const grant = config.externalModelConsent;
     if (!config.model || !grant || grant.businessId !== c.businessId || grant.caseId !== c.caseId ||
+        grant.provider !== config.provider || (grant.model !== undefined && grant.model !== config.model) ||
+        (config.provider === "deepseek" && grant.model !== config.model) ||
         grant.frozenCommitment !== session.frozen.commitment || grant.revokedAt !== null ||
         Date.parse(grant.grantedAt) > Date.parse(now) || Date.parse(grant.expiresAt) <= Date.parse(now) ||
         Date.parse(grant.expiresAt) <= Date.parse(grant.grantedAt))
       throw new Error("Active case-bound external model processing consent is required");
+    modelSelectionSchema.parse({ provider: config.provider, model: config.model });
   }
   const rulesQuestions = clarificationBaseline(input, rules);
   const modelDecision = { ...rules, nextCheck: rulesQuestions.length ? rulesQuestions.map((q) => q.text).join("\n") : rules.nextCheck };
@@ -208,13 +213,13 @@ export async function executePilotAgent(
   let credentialRedacted = false;
   let failure = "Provider response is unknown or unusable; no automatic retry is allowed.";
   try {
-    const agent = await proposeDecisionWithModel({ decision: prepared.modelDecision, evidence: prepared.evidence, apiKey: options.apiKey, model: prepared.config.model! }, async (url, init) => {
-      if (++calls > 1 || url !== "https://api.openai.com/v1/responses" || init?.method !== "POST" || init.redirect !== "error")
+    const agent = await proposeDecisionWithModel({ decision: prepared.modelDecision, evidence: prepared.evidence, apiKey: options.apiKey, model: prepared.config.model!, provider: prepared.config.provider }, async (url, init) => {
+      if (++calls > 1 || url !== modelEndpoint(prepared.config.provider) || init?.method !== "POST" || init.redirect !== "error")
         throw new Error("Model call exceeds the single fixed-endpoint budget");
       const body = JSON.parse(String(init.body));
       if (String(init.body).length > 120_000 || String(init.body).includes(options.apiKey))
         throw new Error("Model request exceeds its complete payload budget or contains credentials");
-      await options.saveRequest({ endpoint: url, method: "POST", body, requestCommitment: commitment(body), maxCalls: 1, timeoutMilliseconds: 25_000 });
+      await options.saveRequest({ provider: prepared.config.provider, model: prepared.config.model, endpoint: url, method: "POST", body, requestCommitment: commitment(body), maxCalls: 1, timeoutMilliseconds: 25_000 });
       failure = "Active consent or frozen binding changed before dispatch.";
       await options.revalidate();
       failure = "Provider response is unknown or unusable; no automatic retry is allowed.";

@@ -29,3 +29,23 @@ it("records proposal provenance and never permits fabricated citations or widene
   await expect(call("ASK", ["fabricated"])).rejects.toThrow(/unavailable/);
   expect(invoked).toBe(3);
 });
+
+
+it("routes DeepSeek proposals only to the fixed Responses endpoint and preserves proposal bounds", async () => {
+  const input = createDemoFixture("missing-acceptance"), decision = verifyObligation(input);
+  const result = await proposeDecisionWithModel({ decision, evidence: decisionEvidence(input, decision), apiKey: "deepseek-fixture", model: "deepseek-flash", provider: "deepseek" }, async (url, init) => {
+    expect(url).toBe("https://api.deepseek.com/responses");
+    expect(init?.redirect).toBe("error");
+    const body = JSON.parse(String(init?.body));
+    expect(body.text.format).toMatchObject({ type: "json_schema", strict: true });
+    expect(body.reasoning).toEqual({ effort: "none" });
+    expect(body).not.toHaveProperty("tools");
+    return Response.json({ id: "ds-fixture", model: "deepseek-flash", status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ action: "ASK", reason: "Acceptance missing", sourceIds: decision.sourceIds, missing: ["Explicit authorized acceptance"] }) }] }] });
+  });
+  expect(result).toMatchObject({ provider: "deepseek", providerResponseId: "ds-fixture", model: "deepseek-flash", authority: "proposal-only", proposal: { action: "ASK" } });
+});
+
+it.each(["incomplete", "failed", "in_progress"])("does not accept a DeepSeek %s response as a usable proposal", async status => {
+  const input = createDemoFixture("missing-acceptance"), decision = verifyObligation(input);
+  await expect(proposeDecisionWithModel({ decision, evidence: decisionEvidence(input, decision), apiKey: "fixture", model: "deepseek-flash", provider: "deepseek" }, async () => Response.json({ id: "ds-fixture", model: "deepseek-flash", status, output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ action: "ASK", reason: "Acceptance missing", sourceIds: decision.sourceIds, missing: [] }) }] }] }))).rejects.toThrow(/complete/i);
+});

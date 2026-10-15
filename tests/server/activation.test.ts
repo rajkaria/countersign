@@ -256,3 +256,28 @@ describe("actual PostgreSQL migration and restore readbacks", () => {
     expect((await inspectRestoredIdentities(database, baseline)).mismatchedTables).toEqual(["documents"]);
   });
 });
+
+
+it("checks DeepSeek model access using only its fixed read-only list endpoint", async () => {
+  const requests: string[] = [];
+  const report = await runActivationChecks({ env: { MODEL_PROVIDER: "deepseek", MODEL_NAME: "deepseek-flash", DEEPSEEK_API_KEY: "deepseek-private-key" }, now, probe: true,
+    fetcher: async (url, init) => {
+      requests.push(String(url));
+      expect(init?.method).toBe("GET"); expect(init?.redirect).toBe("error");
+      expect(init?.headers).toMatchObject({ Authorization: "Bearer deepseek-private-key" });
+      return Response.json({ object: "list", data: [{ id: "deepseek-flash" }] });
+    },
+  });
+  expect(requests).toEqual(["https://api.deepseek.com/models"]);
+  expect(check(report, "integration.model").status).toBe("configured");
+  expect(check(report, "model.access").status).toBe("verified");
+  expect(JSON.stringify(report)).not.toContain("deepseek-private-key");
+  expect(report.financialActivationVerified).toBe(false);
+});
+
+it("marks unsupported model providers invalid and makes no model request", async () => {
+  const fetcher = vi.fn();
+  const report = await runActivationChecks({ env: { MODEL_PROVIDER: "other", MODEL_NAME: "fixture", MODEL_API_KEY: "private-key" }, now, probe: true, fetcher });
+  expect(check(report, "integration.model").status).toBe("invalid");
+  expect(fetcher).not.toHaveBeenCalled();
+});

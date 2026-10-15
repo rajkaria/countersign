@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Pool } from "pg";
+import { z } from "zod";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   deploymentManifestSchema,
@@ -13,6 +14,7 @@ import {
   type DestinationRelayConfig,
 } from "../integrations/relay";
 import { boundedJson, type Fetcher } from "../integrations/http";
+import { readModelConfiguration, type ModelConfiguration } from "../integrations/model-provider";
 import type { Database } from "./db";
 
 export type ActivationProfile = "web" | "worker" | "verifier";
@@ -148,8 +150,11 @@ export function inspectActivation(options: InspectionOptions = {}): ActivationRe
   add("source.rpc", !configured(rpc) ? "missing" : rpcConfigured ? "configured" : "invalid", "execution", "Source RPC is configuration only until the selected chain and exact deployment evidence are read back.", "Set a read-only HTTPS RPC for the manifest chain.");
   const enabled = env.EXECUTION_ENABLED === "true";
   add("execution.switch", enabled ? "configured" : "disabled", "execution", enabled ? "Execution is requested. This flag does not prove prerequisites or authorize funds." : "Execution remains disabled; Observe and Prepare can be enabled separately.", "Enable only after the separate owner activation procedure is complete.");
-  const model = configured(env.MODEL_API_KEY) && configured(env.MODEL_NAME);
-  add("integration.model", model ? "configured" : configured(env.MODEL_API_KEY) || configured(env.MODEL_NAME) ? "invalid" : "disabled", "optional", "Extraction and agent proposals need both MODEL_API_KEY and MODEL_NAME. Deterministic checks remain available without them.", "Select a model, configure credentials and review data handling. The diagnostic never makes a paid model request.");
+  let model: ModelConfiguration | null = null;
+  let invalidModel = false;
+  try { model = readModelConfiguration(env); } catch { invalidModel = true; }
+  const modelPresent = [env.MODEL_PROVIDER, env.MODEL_API_KEY, env.MODEL_NAME, env.DEEPSEEK_API_KEY, env.OPENAI_API_KEY].some(configured);
+  add("integration.model", model ? "configured" : invalidModel || modelPresent ? "invalid" : "disabled", "optional", "Extraction and agent proposals need a validated MODEL_PROVIDER (openai by default, or deepseek), MODEL_NAME and the selected provider's private key. Deterministic checks remain available without them.", "Configure MODEL_API_KEY or the matching OPENAI_API_KEY/DEEPSEEK_API_KEY and review provider data handling. DeepSeek Flash supports text/CSV/PNG/JPEG; its Responses API does not accept PDFs. The diagnostic never makes a paid model request.");
   const githubRepository = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(env.GITHUB_REPOSITORY ?? "") && ![".", ".."].includes((env.GITHUB_REPOSITORY ?? "").split("/")[1]);
   add("integration.github", configured(env.GITHUB_REPOSITORY) ? githubRepository ? "configured" : "invalid" : "disabled", "optional", "GitHub evidence is read-only activity, never acceptance. Public repositories need no token; private repositories need scoped access.", "Set GITHUB_REPOSITORY and a least-privilege GITHUB_TOKEN for private repository readback.");
   add("integration.forwarding", "owner_action", "optional", "Scoped intake keys are created within an authenticated workspace; no mailbox or forwarding provider is provisioned by configuration.", "Create a scoped intake key, configure the trusted forwarder and test a consented non-payment fixture with a stable external ID.");
@@ -258,10 +263,17 @@ export async function runActivationChecks(options: ProbeOptions = {}): Promise<A
   } else { add("manifest.chain-evidence", "missing", "execution", "Chain-evidence readback requires a current manifest and valid source RPC."); }
   const fetcher = options.fetcher ?? fetch;
   const get = async (url: string, headers?: Record<string, string>) => boundedJson(await fetcher(url, { method: "GET", headers, redirect: "error", signal: AbortSignal.timeout(8000) }), 64_000);
-  if (configured(env.MODEL_API_KEY) && configured(env.MODEL_NAME)) {
+  let modelConfiguration: ModelConfiguration | null = null;
+  try { modelConfiguration = readModelConfiguration(env); } catch { /* The local report already marks invalid selection; do not probe it. */ }
+  if (modelConfiguration) {
     try {
-      const model = await get(`https://api.openai.com/v1/models/${encodeURIComponent(env.MODEL_NAME!)}`, { Authorization: `Bearer ${env.MODEL_API_KEY}` }) as { id?: unknown };
-      add("model.access", model.id === env.MODEL_NAME ? "verified" : "failed", "optional", "Read-only model access lookup. No generation, extraction capability, output quality or production data consent is verified.");
+      const config = modelConfiguration;
+      const url = config.provider === "deepseek" ? "https://api.deepseek.com/models" : `https://api.openai.com/v1/models/${encodeURIComponent(config.model)}`;
+      const model = await get(url, { Authorization: `Bearer ${config.apiKey}` });
+      const available = config.provider === "deepseek"
+        ? z.object({ data: z.array(z.object({ id: z.string() })).max(1000) }).parse(model).data.some((item) => item.id === config.model)
+        : z.object({ id: z.string() }).parse(model).id === config.model;
+      add("model.access", available ? "verified" : "failed", "optional", "Read-only selected-provider model access lookup. No generation, extraction capability, output quality or production data consent is verified.");
     } catch { add("model.access", "failed", "optional", "Model access lookup failed; inspect the selected model and provider credential privately. No paid generation was attempted."); }
   }
   if (report.checks.find((c) => c.id === "integration.github")?.status === "configured") {

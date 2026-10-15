@@ -42,6 +42,7 @@ beforeEach(async () => {
   await pg.exec("TRUNCATE organizations CASCADE");
   await pg.query("INSERT INTO organizations(id,name) VALUES($1,'Extraction fixture'),($2,'Other tenant')", [org, otherOrg]);
   vi.stubEnv("DOCUMENT_ENCRYPTION_KEY", Buffer.alloc(32, 7).toString("base64"));
+  vi.stubEnv("MODEL_PROVIDER", "openai");
   vi.stubEnv("MODEL_API_KEY", "fixture-key-never-sent");
   vi.stubEnv("MODEL_NAME", "fixture-vision-model");
 });
@@ -150,6 +151,40 @@ describe("private source extraction", () => {
     const fetcher = provider();
     vi.stubEnv("MODEL_API_KEY", "");
     await expect(extractTerms(db, owner, id())).rejects.toMatchObject({ code: "MODEL_CONFIG" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("DeepSeek original extraction", () => {
+  beforeEach(() => { vi.stubEnv("MODEL_PROVIDER", "deepseek"); vi.stubEnv("MODEL_NAME", "deepseek-flash"); });
+  it.each([
+    ["text/plain", "agreement.txt", Buffer.from("Exact 125.500000 USDC agreement")],
+    ["image/png", "agreement.png", Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])],
+  ])("sends the complete supported %s original with DeepSeek provenance and no financial side effects", async (mime, filename, bytes) => {
+    const doc = await source(bytes, mime, filename);
+    const fetcher = vi.fn(async () => Response.json({ ...modelResult(), model: "deepseek-flash" }));
+    const result = await extractTerms(db, owner, doc.id, fetcher);
+    const [url, request] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(request.body));
+    expect(url).toBe("https://api.deepseek.com/responses");
+    expect(body.reasoning).toEqual({ effort: "none" });
+    expect(body.input[0].content[0]).toMatchObject(mime.startsWith("image/")
+      ? { type: "input_image", image_url: `data:${mime};base64,${bytes.toString("base64")}` }
+      : { type: "input_text", text: bytes.toString("utf8") });
+    expect(result.provenance).toMatchObject({ provider: "deepseek", model: "deepseek-flash", authority: "proposal-only", source: { bytes: bytes.length } });
+    expect((await pg.query("SELECT * FROM records")).rows).toHaveLength(0);
+    expect((await pg.query("SELECT * FROM payment_intents")).rows).toHaveLength(0);
+  });
+  it("rejects unsupported PDF input before disclosing any source to DeepSeek", async () => {
+    const doc = await source(Buffer.from("%PDF-1.4 complete original"), "application/pdf", "agreement.pdf"), fetcher = provider();
+    await expect(extractTerms(db, owner, doc.id, fetcher)).rejects.toMatchObject({ code: "MODEL_SOURCE_TYPE", status: 415 });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("rejects image extraction with the text-only DeepSeek model before any request", async () => {
+    vi.stubEnv("MODEL_NAME", "deepseek-v4-pro");
+    const doc = await source(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), "image/png", "agreement.png"), fetcher = provider();
+    await expect(extractTerms(db, owner, doc.id, fetcher)).rejects.toMatchObject({ code: "MODEL_SOURCE_TYPE", status: 415 });
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

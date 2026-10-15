@@ -1,5 +1,15 @@
 # Release verification and activation
 
+## 16 October 2026 — 0.6.0 activation continuation
+
+DeepSeek is an explicit additional model provider; OpenAI remains compatible by default. Fixed endpoints, complete-source format checks, structured output validation, provider/model processing consent and durable one-call reservations preserve proposal-only authority. No model output can approve terms, acceptance, destinations or payment. DeepSeek Flash accepts text/CSV/PNG/JPEG; PDF input is rejected before dispatch.
+
+A new dedicated Neon PostgreSQL database is provisioned on the Vercel Marketplace free plan. All five migrations and production readiness readback pass. Encrypted local test wallets and a private hypothetical business pack are setup evidence, not Circle-backed execution or customer traction. DeepSeek model access has been verified without generation. Financial execution remains disabled while the provider audit and actual deployment/custody/recovery gates remain unresolved.
+
+Fresh software checks and final activation evidence are recorded below as they complete. The October 13 sections are historical release evidence.
+
+## Historical 13 October release
+
 Release date: 13 October 2026. Software version: 0.5.0. Private source: https://github.com/rajkaria/countersign. Web deployment: https://countersign-jet.vercel.app.
 
 ## Actual deployment

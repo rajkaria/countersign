@@ -52,6 +52,21 @@ Run the worker on a durable host with database access and separately protected C
 
 Back up PostgreSQL and the document key separately. Test restore before accepting real customer records. Preserve pending payment identities across restore. The activation guide's read-only restore fingerprint command compares original payment/outbox/relay identities, versioned records, encrypted bytes and ledger commitments without outputting private rows; it supplements provider backup verification and authenticated/key-recovery tests. Establish a retention policy with customers and revoke vendor links and intake keys when they are no longer needed.
 
+## Optional model provider
+
+Keep model credentials on the web host only. Set `MODEL_PROVIDER=deepseek`, `MODEL_NAME=deepseek-flash`, and a private `MODEL_API_KEY` (or `DEEPSEEK_API_KEY`) to select DeepSeek. Omitting `MODEL_PROVIDER` preserves the existing OpenAI behavior with `MODEL_NAME` and `MODEL_API_KEY` (or `OPENAI_API_KEY`). A generic `MODEL_API_KEY` takes precedence over a provider-specific key. An OpenAI-specific key is never used for DeepSeek, or vice versa. Invalid provider/model selections fail before disclosing evidence. Never use `NEXT_PUBLIC_*` for these secrets.
+
+| Provider | Fixed generation endpoint | Supported original extraction |
+|---|---|---|
+| `openai` (default) | `https://api.openai.com/v1/responses` | Text/CSV, PNG/JPEG and inline PDF with a compatible selected model |
+| `deepseek` | `https://api.deepseek.com/responses` | `deepseek-flash`: text/CSV and inline PNG/JPEG; `deepseek-v4-pro`: text/CSV only. PDF inputs are rejected before dispatch. |
+
+Both paths validate structured output locally and preserve source hashes and proposal-only authority. DeepSeek uses the documented Responses JSON schema format with thinking disabled to reserve the bounded output budget for suggestions. Unsupported formats are never silently converted or truncated. There is no configurable base URL, fallback to another provider, tool call or automatic retry. The OpenAI request uses `store=false`; DeepSeek's stateless Responses compatibility does not establish a retention policy or authorize external processing. Review the selected provider's data handling and costs before using consented originals.
+
+A read-only `activation:check -- --probe` verifies selected-model access through OpenAI's model lookup or DeepSeek's `/models` list. It makes no generation request and proves neither extraction quality nor processing consent. The portable pilot uses its own `COUNTERSIGN_PILOT_DEEPSEEK_API_KEY` or `COUNTERSIGN_PILOT_OPENAI_API_KEY`, exact provider/model consent and both explicit opt-in flags; see [evaluation](/docs/evaluation#local-rules-versus-model-run).
+
+Model availability and input formats were checked against the [DeepSeek models register](https://api-docs.deepseek.com/quick_start/pricing/), [Responses API compatibility](https://api-docs.deepseek.com/guides/responses_api/), and [read-only model list](https://api-docs.deepseek.com/api/list-models/) on October 16, 2026. Adapter fixture tests are not paid-provider verification or evidence of model benefit.
+
 ## Persistent worker container
 
 `Dockerfile.worker` builds the existing financial worker into a Node 22 JavaScript entrypoint. The final image installs only the dedicated locked PostgreSQL, validation and chain-library runtime in `worker-runtime/`, plus the separate locked Circle CLI 1.1.4 runtime. The build-only compiler, TypeScript launcher, web framework, React, lint/test tools and development glob dependency chain are absent from the final image. Both build and runtime stages pin the same multi-architecture Node image digest.

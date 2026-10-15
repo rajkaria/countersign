@@ -194,12 +194,13 @@ Complete a copy of `run-config-template.json`:
 | `codeCommit` | Declared full Git SHA, or null; actual runtime source is captured separately |
 | `rulesVersion` | Rule-version declaration, not independent version verification |
 | `assetBinding` | Frozen `studyAssetId` and exact `symbol`, `chainId`, `address`, `decimals`, `termsCurrency` and `invoiceCurrency` |
-| `model` | Owner-selected provider model ID; null is allowed offline |
-| `externalModelConsent` | Null offline; otherwise the separate case/business-bound OpenAI processing grant |
+| `provider` | `openai` (legacy default) or explicitly selected `deepseek` |
+| `model` | Owner-selected provider model ID; null is allowed offline; use `deepseek-flash` for DeepSeek Flash |
+| `externalModelConsent` | Null offline; otherwise the separate case/business/provider/model-bound processing grant |
 
 The frozen asset identity, normalized input and run mapping must agree. The settlement label is the symbol or `Test ` followed by it. This single-asset runner rejects USD obligations against USDC and distinct same-symbol tokens; it performs no conversion or token-authenticity check. Full obligation units bind to fixed terms or exact hourly rate times quantity, rather than a smaller partial invoice/request. Incomplete hourly context retains the declared amount basis and missing-information result, not a validated hourly entitlement.
 
-External consent contains `businessId`, `caseId`, `frozenCommitment`, `evidenceId`, `provider: "openai"`, `grantedAt`, `expiresAt` and `revokedAt`. It must be current, unrevoked and bind to the exact case/study. Local analysis and publication do not authorize provider disclosure. Keep grants current: local/external consent and frozen/source bindings are re-read immediately before dispatch and after response.
+External consent contains `businessId`, `caseId`, `frozenCommitment`, `evidenceId`, `provider` (`"openai"` or `"deepseek"`), exact selected `model`, `grantedAt`, `expiresAt` and `revokedAt`. It must be current, unrevoked and bind to the exact case/study and selected provider/model. DeepSeek requires an explicit matching model in the grant. Legacy configs with no `provider` field default to OpenAI, and existing OpenAI grants without `model` remain compatible; an explicit grant model must always match. A grant for OpenAI cannot authorize sending records to DeepSeek. Local analysis and publication do not authorize provider disclosure. Keep grants current: local/external consent and frozen/source bindings are re-read immediately before dispatch and after response.
 
 Give the prior-workflow reviewer only a blind context pack before showing other arms:
 
@@ -222,7 +223,7 @@ npm run pilot -- rules \
 
 The baseline calls the unchanged product verifier. Its deterministic clarification questions name actual authorized acceptors, obligation, invoice reference, terms version and blocking condition. The model receives the same strong baseline; vague rules questions cannot manufacture an agent advantage.
 
-Only after privately configuring `COUNTERSIGN_PILOT_OPENAI_API_KEY` and approving provider disclosure and one paid call:
+For DeepSeek set `provider: "deepseek"` and `model: "deepseek-flash"` in the run config, and bind the consent grant to those same values. Only after privately configuring the matching `COUNTERSIGN_PILOT_DEEPSEEK_API_KEY` (or `COUNTERSIGN_PILOT_OPENAI_API_KEY` for OpenAI) and approving provider disclosure and one paid call:
 
 ```sh
 npm run pilot -- run-arms \
@@ -231,9 +232,9 @@ npm run pilot -- run-arms \
   --allow-external-model --allow-paid-call
 ```
 
-Keep the key out of JSON, command arguments, chat and git. The existing proposal-only adapter has no tools or model-controlled URLs, uses the fixed Responses endpoint with `store=false`, and accepts only deterministic actions and available citations. Each run permits one request, up to 50 evidence records, 20,000 characters per combined source record, 100,000 evidence characters, 120,000 serialized request characters, 1,000 output tokens, a 25-second adapter timeout and 1 MB provider JSON. These limits establish no dollar price; actual cost remains unknown until supplied.
+Keep the key out of JSON, command arguments, chat and git. The existing proposal-only adapter has no tools or model-controlled URLs, uses only the selected provider's fixed HTTPS Responses endpoint (OpenAI `store=false`; DeepSeek stateless Responses with thinking disabled), and accepts only deterministic actions and available citations. Each run permits one request, up to 50 evidence records, 20,000 characters per combined source record, 100,000 evidence characters, 120,000 serialized request characters, 1,000 output tokens, a 25-second adapter timeout and 1 MB provider JSON. These limits establish no dollar price; actual cost remains unknown until supplied.
 
-A fixed private registry at `$HOME/.local/state/countersign/pilot-model-runs` is independent of session/output folders. Exclusive reservations are flushed to disk, with directory flushing where supported, before dispatch. Reusing the frozen-study/case/run identity is refused under a new output folder. There is no automatic retry/reset. Crashes, timeouts, invalid responses, changed sources and revoked consent leave reserved unknown/unusable attempts. Inspect original provider evidence before approving a genuinely new attempt. Carry the private registry when moving hosts; another host cannot infer prior reservations.
+A fixed private registry at `$HOME/.local/state/countersign/pilot-model-runs` is independent of session/output folders. Reservations retain the selected provider/model, and their frozen-study/case/run identity remains independent of provider so switching providers cannot reuse an uncertain attempt. Exclusive reservations are flushed to disk, with directory flushing where supported, before dispatch. Reusing the frozen-study/case/run identity is refused under a new output folder. There is no automatic retry/reset. Crashes, timeouts, invalid responses, changed sources and revoked consent leave reserved unknown/unusable attempts. Inspect original provider evidence before approving a genuinely new attempt. Carry the private registry when moving hosts; another host cannot infer prior reservations.
 
 Artifacts retain the exact prepared snapshot, real rules result, private request/response evidence, commitments, policy/terms versions, actual Git HEAD/dirty state and critical source-file hashes. A declared SHA mismatch fails when actual HEAD exists; an archive records unavailable rather than verified. Dirty code stays visibly dirty. Hashes and version declarations establish consistency, not authentic sources, correct labels or a clean reproducible release.
 

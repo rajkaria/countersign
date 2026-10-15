@@ -4,14 +4,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { runPilotCli } from "../../scripts/pilot";
 import { createDemoFixture } from "../../src/lib/domain";
 import { freezePilot, pilotMeasurementDraftSchema } from "../../src/lib/domain/pilot";
 
 const now = "2026-10-13T12:00:00.000Z";
 const dirs: string[] = [];
-afterEach(async () => { await Promise.all(dirs.splice(0).map((d) => rm(d, { recursive: true, force: true }))); });
+afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(dirs.splice(0).map((d) => rm(d, { recursive: true, force: true }))); });
 
 async function setup(mutator?: (draft: Record<string, unknown>) => void) {
   const dir = await mkdtemp(join(tmpdir(), "countersign-model-pilot-test-")); dirs.push(dir);
@@ -282,4 +282,43 @@ it.each(["malformed-json", "unknown-key", "missing-file", "missing-consent"])("n
   expect(output.stderr).not.toContain("sk-NONSECR");
   expect(output.stderr).not.toContain("sk-NONSECRET");
   expect(output.stderr).toContain("Pilot");
+});
+
+
+it("binds a DeepSeek run to provider, selected model, exact consent and durable one-call identity", async () => {
+  const s = await setup();
+  const config = { ...s.config, provider: "deepseek", model: "deepseek-flash", externalModelConsent: { ...s.config.externalModelConsent, provider: "deepseek", model: "deepseek-flash" } };
+  await writeFile(s.configFile, JSON.stringify(config));
+  vi.stubEnv("COUNTERSIGN_PILOT_DEEPSEEK_API_KEY", "DS-PRIVATE-FIXTURE-KEY");
+  vi.stubEnv("COUNTERSIGN_PILOT_OPENAI_API_KEY", "WRONG-OPENAI-KEY");
+  let calls = 0;
+  await runPilotCli(args(s), now, { ...base(s), clock: () => now, fetcher: async (url, init) => {
+    calls++;
+    expect(url).toBe("https://api.deepseek.com/responses");
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer DS-PRIVATE-FIXTURE-KEY" });
+    const body = await response().json();
+    return Response.json({ ...body, model: "deepseek-flash", status: "completed" });
+  } });
+  const result = JSON.parse(await readFile(join(s.out, "result.json"), "utf8"));
+  expect(result).toMatchObject({ status: "complete", selectedProvider: "deepseek", selectedModel: "deepseek-flash", agent: { provider: "deepseek", model: "deepseek-flash", authority: "proposal-only" } });
+  const journal = JSON.parse(await readFile(join(s.dir, "registry", (await readdir(join(s.dir, "registry")))[0]), "utf8"));
+  expect(journal).toMatchObject({ provider: "deepseek", model: "deepseek-flash", maxCalls: 1 });
+  const request = await readFile(join(s.out, "request.json"), "utf8");
+  expect(request).toContain("https://api.deepseek.com/responses");
+  expect(request).not.toContain("DS-PRIVATE-FIXTURE-KEY");
+  await expect(runPilotCli([...args(s).slice(0, 4), join(s.dir, "second-output"), ...args(s).slice(5)], now, { ...base(s), clock: () => now })).rejects.toThrow();
+  expect(calls).toBe(1);
+});
+
+it.each(["wrong-provider", "wrong-model", "missing-model"])("rejects DeepSeek %s consent before reservation or dispatch", async kind => {
+  const s = await setup();
+  const grant: Record<string, unknown> = { ...s.config.externalModelConsent, provider: "deepseek", model: "deepseek-flash" };
+  if (kind === "wrong-provider") grant.provider = "openai";
+  if (kind === "wrong-model") grant.model = "deepseek-v4-pro";
+  if (kind === "missing-model") delete grant.model;
+  await writeFile(s.configFile, JSON.stringify({ ...s.config, provider: "deepseek", model: "deepseek-flash", externalModelConsent: grant }));
+  let calls = 0;
+  await expect(runPilotCli(args(s), now, { ...base(s), apiKey: "fixture", fetcher: async () => { calls++; return response(); } })).rejects.toThrow(/consent/i);
+  expect(calls).toBe(0);
+  await expect(readdir(join(s.dir, "registry"))).rejects.toThrow();
 });

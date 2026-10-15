@@ -29,7 +29,8 @@ const usage = `Usage:
   npm run pilot -- run-arms <session.json> <case-id> <run-config.json> <new-private-run-directory> --allow-external-model --allow-paid-call
 
 Capture/rules commands make no network calls. run-arms requires separate active
-external-processing consent, both opt-ins, and COUNTERSIGN_PILOT_OPENAI_API_KEY.
+external-processing consent, both opt-ins, and the selected provider's private key
+(COUNTERSIGN_PILOT_OPENAI_API_KEY or COUNTERSIGN_PILOT_DEEPSEEK_API_KEY).
 It reserves one bounded model attempt; uncertain runs are never retried automatically.
 No command sends notices or payments. All outputs remain private.
 See /docs/evaluation for consent, capture, and interpretation instructions.`;
@@ -83,7 +84,7 @@ No report is published automatically. Evidence/consent truth requires human revi
 Optional local model comparison: complete arm-input-template.json and place its
 strict verification/originals envelope in the case's snapshot.content BEFORE freeze.
 Complete run-config-template.json with exact asset mapping and separate case-bound
-OpenAI processing consent. Run rules offline first, then run-arms only when the
+provider/model processing consent. Run rules offline first, then run-arms only when the
 owner approves an actual paid call. Read /docs/evaluation for command flags, durable
 reservations, unknown outcomes and measurement drafts. No model call is made by init.
 `;
@@ -163,7 +164,7 @@ async function writeDurable(path: string, value: unknown) {
 async function runtimeCode(): Promise<CodeProvenance> {
   const root = await realpath(fileURLToPath(new URL("..", import.meta.url)));
   const criticalFiles: CodeProvenance["criticalFiles"] = {};
-  for (const path of ["scripts/pilot.ts", "src/lib/evaluation/pilot-arms.ts", "src/lib/domain/verifier.ts", "src/lib/domain/money.ts", "src/lib/domain/types.ts", "src/lib/domain/pilot.ts", "src/lib/domain/receipt.ts", "src/lib/integrations/agent.ts", "src/lib/integrations/http.ts"])
+  for (const path of ["scripts/pilot.ts", "src/lib/evaluation/pilot-arms.ts", "src/lib/domain/verifier.ts", "src/lib/domain/money.ts", "src/lib/domain/types.ts", "src/lib/domain/pilot.ts", "src/lib/domain/receipt.ts", "src/lib/integrations/agent.ts", "src/lib/integrations/http.ts", "src/lib/integrations/model-provider.ts"])
     criticalFiles[path] = sha256(await readFile(join(root, path), "utf8"));
   const exec = promisify(execFile);
   try {
@@ -233,8 +234,9 @@ export async function runPilotCli(args: string[], now = new Date().toISOString()
     const code = await codeReader();
     if (prepared.config.codeCommit && code.head && prepared.config.codeCommit !== code.head)
       throw new Error("Declared code commit does not match runtime Git HEAD");
-    const apiKey = dependencies.apiKey ?? process.env.COUNTERSIGN_PILOT_OPENAI_API_KEY ?? "";
-    if (withModel && !apiKey) throw new Error("COUNTERSIGN_PILOT_OPENAI_API_KEY must be configured outside artifacts");
+    const keyName = prepared.config.provider === "deepseek" ? "COUNTERSIGN_PILOT_DEEPSEEK_API_KEY" : "COUNTERSIGN_PILOT_OPENAI_API_KEY";
+    const apiKey = dependencies.apiKey ?? process.env[keyName] ?? "";
+    if (withModel && !apiKey.trim()) throw new Error(`${keyName} must be configured outside artifacts`);
     if (withModel && JSON.stringify(prepared).includes(apiKey)) throw new Error("Credential appears in private inputs; redact it before evaluation");
     const directory = resolve(output);
     await privateOutput(directory);
@@ -260,6 +262,7 @@ export async function runPilotCli(args: string[], now = new Date().toISOString()
       const key = commitment({ frozenCommitment: prepared.frozenCommitment, caseId, runId: prepared.runId }).slice(2);
       await writeDurable(join(registry, key + ".json"), {
         schemaVersion: 1, state: "reserved-outcome-unknown", runId: prepared.runId, caseId,
+        provider: prepared.config.provider, model: prepared.config.model,
         frozenCommitment: prepared.frozenCommitment, inputCommitment: prepared.inputCommitment,
         evidenceCommitment: prepared.evidenceCommitment, outputDirectory: directory, reservedAt: now, maxCalls: 1,
       });
@@ -287,6 +290,7 @@ export async function runPilotCli(args: string[], now = new Date().toISOString()
     })) ?? [];
     const result = {
       schemaVersion: 1, runId: prepared.runId, caseId, inputCommitment: prepared.inputCommitment,
+      selectedProvider: prepared.config.provider, selectedModel: prepared.config.model,
       frozenCommitment: prepared.frozenCommitment, evidenceCommitment: prepared.evidenceCommitment,
       declaredCodeCommit: prepared.config.codeCommit, runtimeCode: code,
       declaredCommitMatchesHead: prepared.config.codeCommit && code.head ? prepared.config.codeCommit === code.head : null,

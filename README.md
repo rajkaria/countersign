@@ -18,7 +18,7 @@ Start a private measurement kit outside this repository with `npm run pilot -- i
 
 [Live demo](https://countersign-jet.vercel.app) · [Release verification and activation](docs/RELEASE.md)
 
-The operating desk combines due dates, settled and committed balances, exception owners, reminder preferences and accounting period exports. Hourly agreements, versioned invoice corrections and exact partial-payment requests are available through the authenticated console. Optional agreement/invoice extraction stays proposal-only and links to the complete original.
+The operating desk combines due dates, settled and committed balances, exception owners, reminder preferences and accounting period exports. Hourly agreements, versioned invoice corrections and exact partial-payment requests are available through the authenticated console. Optional agreement/invoice extraction stays proposal-only and links to the complete original. [DeepSeek or OpenAI model configuration](docs/deployment.md#optional-model-provider) supports the web assistant and private one-call pilot with provider/model consent binding; no key or paid-provider proof is supplied by source code.
 
 [Explore the operations demo](https://countersign-jet.vercel.app/workspace/operations) · [Activate a real workspace](docs/activation.md) · [Operations desk guide](docs/operations-desk.md)
 

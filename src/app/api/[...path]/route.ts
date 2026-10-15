@@ -40,6 +40,7 @@ import { accountingExport, csvCell } from "@/lib/server/export";
 import { buildCashPlan } from "@/lib/server/planning";
 import { extractDocument } from "@/lib/server/extraction";
 import { proposeDecisionWithModel, decisionEvidence } from "@/lib/integrations/agent";
+import { readModelConfiguration, type ModelConfiguration } from "@/lib/integrations/model-provider";
 import { importInvoices } from "@/lib/server/intake";
 import { evaluateInvoice, preparePayment } from "@/lib/server/review";
 import {
@@ -599,7 +600,10 @@ async function handle(
     if (path[2] === "agent-review" && method === "POST") {
       requireRole(actor, ["owner", "approver", "operator"]);
       const body = z.object({ invoiceId: uuid }).parse(await json(request));
-      if (!process.env.MODEL_API_KEY || !process.env.MODEL_NAME)
+      let modelConfiguration: ModelConfiguration | null;
+      try { modelConfiguration = readModelConfiguration(process.env); }
+      catch { throw new ServiceError(503, "MODEL_CONFIG", "The evidence assistant provider or model configuration is invalid."); }
+      if (!modelConfiguration)
         throw new ServiceError(
           503,
           "MODEL_CONFIG",
@@ -614,8 +618,7 @@ async function handle(
       const proposal = await proposeDecisionWithModel({
         decision,
         evidence,
-        apiKey: process.env.MODEL_API_KEY,
-        model: process.env.MODEL_NAME,
+        ...modelConfiguration,
       });
       const proposalId = id();
       const binding = {
