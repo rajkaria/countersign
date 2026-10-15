@@ -6,7 +6,17 @@ DeepSeek is an explicit additional model provider; OpenAI remains compatible by 
 
 A new dedicated Neon PostgreSQL database is provisioned on the Vercel Marketplace free plan. All five migrations and production readiness readback pass. Encrypted local test wallets and a private hypothetical business pack are setup evidence, not Circle-backed execution or customer traction. DeepSeek model access has been verified without generation. Financial execution remains disabled while the provider audit and actual deployment/custody/recovery gates remain unresolved.
 
-Fresh software checks and final activation evidence are recorded below as they complete. The October 13 sections are historical release evidence.
+Verification at implementation `6273fa6`: 303 application tests across 36 files, 32 Foundry tests (including fuzz/stateful invariants), type checking, lint, production build and boundary checks pass. All 46 desktop/mobile browser cases pass against the production alias. Hosted Verify [38798961871](https://github.com/rajkaria/countersign/actions/runs/38798961871) succeeds at that exact revision; actual worker-container build/smoke succeeds, while the separate provider runtime audit still fails. Overall CI is not fully green.
+
+Live activation evidence on 16 October: 76 authenticated production HTTP observations pass for two clearly synthetic workspaces, role changes, tenant boundaries and four complete encrypted source roundtrips. A real PostgreSQL logical dump was restored into an isolated database; all eight fingerprint groups match. A document key recovered from the local macOS Keychain decrypted all four originals through a separate authenticated local server against the restored database, with 24 HTTP checks passing. This is logical restore and local key-recovery evidence, not an independent off-device backup/PITR exercise or production audit.
+
+One explicitly approved DeepSeek Flash synthetic request completed with ASK and two source-bound missing-acceptance questions, 3,971 input / 368 output tokens and 2,685 ms latency. The conservative peak-price estimate is USD0.0016329, not a verified provider bill or measured human benefit. Its frozen synthetic study remains incomplete as a three-arm human comparison; no timings, costs or customer outcomes were invented.
+
+The separately hosted Railway operations container has one replica, 0.1 vCPU / 250,000,000-byte memory caps, no volume or public domain, no financial credentials, disabled notices/payments and a fixed expiry of 18 October 2026, 20:00 UTC. Runtime startup and project-only usage readbacks are verified. Railway has no isolated USD5 project hard spending cutoff; the bounded event window and resource caps limit this deployment without changing unrelated workspace limits. Initial observed usage was below USD0.001, not a monthly bill or a permanent hosting guarantee.
+
+A separate manual local-wallet Arc testnet smoke delivered 1 USDC with matching event, recipient balance and finalized block. It is not a Circle Agent Wallet or Countersign invoice execution. Financial execution remains gated by the provider advisories, compatible actual Circle/deployed controls, separated custody and recovery evidence. The hypothetical business does not satisfy genuine-business traction requirements. Source publication, final hosted video and event submission remain separate owner decisions.
+
+The October 13 sections below are historical release evidence.
 
 ## Historical 13 October release
 
