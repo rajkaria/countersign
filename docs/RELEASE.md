@@ -1,10 +1,14 @@
 # Release verification and activation
 
-## 16 October 2026 — 0.6.0 activation continuation
+## 16 October 2026 — 0.6.1 activation continuation
+
+External EOA wallets can now sign in by copying an exact short-lived challenge, signing locally and pasting the signature. Server verification and the normal HttpOnly session remain unchanged. Editing the address invalidates outstanding challenges; expiry and stale responses cannot reuse a previous message. No private key or recovery phrase is requested.
+
+The assembled 0.6.1 release passes the full Node 22 gate: 303 application tests / 36 files, 32 contract tests, type checking, lint, production build and repository boundary. All 58 desktop/mobile browser cases pass locally, including external-wallet signature verification, stale challenges, server rejection, expiry, slow-clock handling and narrow-screen layout. Auth transport fixtures are synthetic; an actual hosted authentication readback is recorded separately in the private handoff.
 
 DeepSeek is an explicit additional model provider; OpenAI remains compatible by default. Fixed endpoints, complete-source format checks, structured output validation, provider/model processing consent and durable one-call reservations preserve proposal-only authority. No model output can approve terms, acceptance, destinations or payment. DeepSeek Flash accepts text/CSV/PNG/JPEG; PDF input is rejected before dispatch.
 
-A new dedicated Neon PostgreSQL database is provisioned on the Vercel Marketplace free plan. All five migrations and production readiness readback pass. Encrypted local test wallets and a private hypothetical business pack are setup evidence, not Circle-backed execution or customer traction. DeepSeek model access has been verified without generation. Financial execution remains disabled while the provider audit and actual deployment/custody/recovery gates remain unresolved.
+A new dedicated Neon PostgreSQL database is provisioned on the Vercel Marketplace free plan. All five migrations and production readiness readback pass. Encrypted local test wallets and a private hypothetical business pack are setup evidence, not Circle-backed execution or customer traction. DeepSeek model access and the separately approved single synthetic request have been verified. Financial execution remains disabled while the provider audit and actual deployment/custody/recovery gates remain unresolved.
 
 Verification at implementation `6273fa6`: 303 application tests across 36 files, 32 Foundry tests (including fuzz/stateful invariants), type checking, lint, production build and boundary checks pass. All 46 desktop/mobile browser cases pass against the production alias. Hosted Verify [38798961871](https://github.com/rajkaria/countersign/actions/runs/38798961871) succeeds at that exact revision; actual worker-container build/smoke succeeds, while the separate provider runtime audit still fails. Overall CI is not fully green.
 

@@ -1,6 +1,6 @@
 # Release status
 
-Updated 16 October 2026 for software version 0.6.0. This page distinguishes software capability from externally verified production operation.
+Updated 16 October 2026 for software version 0.6.1. This page distinguishes software capability from externally verified production operation.
 
 ## Current hosting
 
@@ -11,7 +11,7 @@ One operations-only worker is hosted separately on Railway with fixed CPU/memory
 ## Implemented software
 
 - A responsive landing page, searchable synthetic workspace, read-only onboarding UI and detailed handbook.
-- Wallet authentication, tenant-scoped records, versioned terms, private encrypted document intake, customer acceptance and case-scoped vendor corrections.
+- Injected-wallet and external EOA challenge/signature authentication, tenant-scoped records, versioned terms, private encrypted document intake, customer acceptance and case-scoped vendor corrections.
 - Deterministic obligation checks, commitment planning, operational state machines, receipt verification and cohort-separated evaluation.
 - Constrained Safe module, restricted CCTP adapter and reserved protection contracts with local tests.
 - PostgreSQL schema, migrations, durable outbox worker and documented integration adapters.

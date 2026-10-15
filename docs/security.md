@@ -14,6 +14,8 @@ The model proposes. The deterministic verifier checks release conditions. The co
 
 Wallet challenges bind the application origin, address, nonce and expiration. Challenges are single-use. Sessions are opaque random tokens, stored only as hashes server-side, carried in HttpOnly SameSite cookies and revocable at logout. Mutations require a matching origin. Tenant membership is checked before loading any object. Team roles and customer acceptance authority are separate checks.
 
+The optional external-wallet sign-in displays the complete server challenge for local EIP-191 signing and accepts only a public address and signature. It uses the same challenge verification and session endpoints as browser wallets. Changing the address clears the challenge/signature and invalidates pending challenge responses; expired challenges and malformed signatures are blocked locally, and the server independently verifies the exact signer, message, expiration and one-time use. Inputs are locked while a signature is verified so a session cannot silently switch to an edited address. Never paste a private key or recovery phrase into the page. A login signature grants no payment or Safe authority.
+
 All database tables containing user data enable row-level security without public policies. The server uses a dedicated private database-owner connection (which bypasses RLS); the application checks authenticated membership, roles, and organization predicates on every customer data path. RLS protects against accidental public Data API exposure, not a compromised server credential. Do not expose these tables through a public data API or grant anonymous access.
 
 ## Documents and privacy

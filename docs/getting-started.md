@@ -8,6 +8,8 @@ The [interactive demo](/workspace) is an isolated synthetic workspace. Review th
 
 The [private workspace](/login) uses Ethereum wallet sign-in. Signing the authentication message grants no spending rights. No seed phrase or private key is requested. The current login supports externally owned wallets; a Safe connection is a separate read-only record.
 
+For a wallet kept outside the browser, choose **Sign with an external wallet**. Enter its public Ethereum address, create a challenge and copy the exact displayed message. Sign the complete UTF-8 text with EIP-191 (`personal_sign`) in OWS or another EOA wallet, then paste the 65-byte hexadecimal signature and complete sign-in. Keep every line break; do not sign a transaction or a message hash. The challenge expires after five minutes and can be used once. Editing the address discards the old challenge and signature. Address/signature edits pause while the server verifies a signature and creates the normal session cookie. Private keys stay in your wallet; application login grants no spending permission.
+
 ## Your first review
 
 - Create a named workspace. Its owner is the authenticated wallet that creates it.
