@@ -4,7 +4,7 @@
 
 Countersign checks invoices against approved agreements, customer acceptance and prior payments. It brings exceptions into a source-linked review and keeps delegated execution inside explicit Safe limits.
 
-Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
+Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. The application source is publicly available at [rajkaria/countersign](https://github.com/rajkaria/countersign).
 
 Version 0.9.0 adds a code-enforced Arc testnet boundary and an unsigned owner-approval planner for the first payment, capped at 1 test USDC. Mainnet and new cross-chain submissions are disabled. Provider security, genuine Circle compatibility and independent recovery remain activation gates; no testnet invoice payment is claimed. Follow [the testnet setup workflow](docs/activation.md#testnet-only-first-payment).
 
@@ -16,7 +16,7 @@ DeepSeek and OpenAI support, explicitly opted-in actual-model comparisons, exter
 
 Start at [the working walkthrough](https://www.usecountersign.xyz/review): activity versus acceptance, fresh authority after corrections, exact partial allocations, renamed duplicates and operation-preserving timeout recovery. Each case runs production reducers against explicitly synthetic inputs. Inspect or download the full input/output trace, then open [the source and evidence guide](docs/reviewer-guide.md). No wallet is required.
 
-Circle Agent Stack integration is implemented behind reviewed deployment gates. Circle Agent Wallet compatibility, invoice execution, measured model benefit and real business usage remain unproven. A separate manual local-wallet Arc transfer and one synthetic DeepSeek request are recorded compatibility checks. The source remains private pending the owner's public-source/license decision. See [current facts](docs/FACTS.md) and [product vision](VISION.md).
+Circle Agent Stack integration is implemented behind reviewed deployment gates. Circle Agent Wallet compatibility, invoice execution, measured model benefit and real business usage remain unproven. A separate manual local-wallet Arc transfer and one synthetic DeepSeek request are recorded compatibility checks. Public source access does not change these financial activation gates. See [current facts](docs/FACTS.md) and [product vision](VISION.md).
 
 Start a private measurement kit outside this repository with `npm run pilot -- init <new-private-directory>`; follow [the evaluation workflow](docs/evaluation.md) for consent, frozen inputs, timing and exact-asset evidence. Capture and export remain local. The separate `run-arms` command can make one external paid model request only with explicit processing/spend opt-ins and private credentials; it never sends a notice or payment. Observed timing, cost and outcomes are not generated. Separate worker image build/smoke checks and strict provider audits are documented in [deployment](docs/deployment.md) and [security review](docs/security-review.md).
 
@@ -109,4 +109,4 @@ The demo stores only labeled synthetic examples in local browser storage. Produc
 
 ## License
 
-All rights reserved pending an explicit source-license decision. Third-party dependencies retain their own licenses. Contract dependency versions and licenses are recorded under contracts/lib. No open-source participation commitment is implied by this private repository.
+The repository is public and retains its all-rights-reserved license. No Arc OSS participation commitment has been made. Third-party dependencies retain their own licenses. Contract dependency versions and licenses are recorded under contracts/lib.

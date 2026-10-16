@@ -1,5 +1,9 @@
 # Release verification and activation
 
+## 16 October 2026 — application source publication
+
+The owner authorized public visibility for [the application repository](https://github.com/rajkaria/countersign). The existing all-rights-reserved license remains in effect; public access does not establish an Arc OSS commitment or event submission. Customer originals, credentials and private planning remain outside the application repository. Financial execution remains disabled and the provider-security gate is unchanged. Earlier references to private source below describe the release state at that time.
+
 ## 16 October 2026 — 0.9.0 testnet activation engineering
 
 New financial authority is restricted to direct Arc Testnet 5042002 and canonical six-decimal USDC. Manifest validation, verifier authorization and Circle estimate/submission share the boundary. Mainnet and fresh cross-chain relay broadcasts are disabled regardless of flags. Existing submitted and uncertain operation identities retain read-only reconciliation. Authorization rechecks evidence expiry before signing and after simulation; activation diagnostics expose the same network restriction.

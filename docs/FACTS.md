@@ -8,7 +8,7 @@ The [handbook home](/docs) organizes all 34 public guides by task and topic. Sta
 
 ## Current hosting
 
-The demo is live at [usecountersign.xyz](https://usecountersign.xyz), which redirects to the canonical [www.usecountersign.xyz](https://www.usecountersign.xyz). The source is private at [rajkaria/countersign](https://github.com/rajkaria/countersign). A dedicated Neon PostgreSQL database is provisioned through Vercel, all five migrations are applied, and production readiness returns 200 with the schema verified. Authenticated synthetic records, role boundaries, tenant isolation and four encrypted document roundtrips have been exercised against this deployment. A logical backup was restored into a separate database; fingerprints and authenticated plaintext recovery match. These checks use generated records, not customer data, an independent audit or provider PITR evidence. Financial execution remains disabled.
+The demo is live at [usecountersign.xyz](https://usecountersign.xyz), which redirects to the canonical [www.usecountersign.xyz](https://www.usecountersign.xyz). The application source is public at [rajkaria/countersign](https://github.com/rajkaria/countersign), with an all-rights-reserved license. A dedicated Neon PostgreSQL database is provisioned through Vercel, all five migrations are applied, and production readiness returns 200 with the schema verified. Authenticated synthetic records, role boundaries, tenant isolation and four encrypted document roundtrips have been exercised against this deployment. A logical backup was restored into a separate database; fingerprints and authenticated plaintext recovery match. These checks use generated records, not customer data, an independent audit or provider PITR evidence. Financial execution remains disabled.
 
 One operations-only worker is hosted separately on Railway with fixed CPU/memory limits and a demo expiry of 18 October 2026, 20:00 UTC. It carries no Circle profile or verifier key; notices and financial execution are disabled. This host does not establish unattended payment execution. Continued hosting after the demo window needs an explicit operating decision.
 
@@ -51,7 +51,7 @@ The home-page demo button opens the wallet-free [guided walkthrough](/review). I
 - Funded payment protection, agreed legal terms or an appointed independent claims reviewer.
 - Independent customers, measured time savings, revenue, or repeat business payment cycles.
 - A publicly hosted approved event video. A narrated/captioned software recording below three minutes exists privately; it is synthetic and is not live Circle, customer or model-quality evidence.
-- A public-source event submission, accepted optional OSS commitment, or submitted form.
+- An accepted optional OSS commitment or submitted event form. Public source access alone does not establish either.
 - A clean financial provider dependency audit: unpatched Circle CLI dependency findings remain a separate financial activation gate. See [security review](/docs/security-review).
 
-The source repository is private at the owner's request. Demo records are synthetic and isolated; they are never included in real-workspace metrics. Live execution remains disabled until the complete deployment and authority gates have passed. See the repository release report for check results and exact configuration status.
+The application repository is public; customer originals, credentials and private planning are excluded. Demo records are synthetic and isolated; they are never included in real-workspace metrics. Live execution remains disabled until the complete deployment and authority gates have passed. See the repository release report for check results and exact configuration status.
