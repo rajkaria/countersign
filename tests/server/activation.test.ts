@@ -22,7 +22,7 @@ const manifest: DeploymentManifest = {
   chainId: 5042002,
   safe: "0x2222222222222222222222222222222222222222",
   module: "0x3333333333333333333333333333333333333333",
-  token: "0x4444444444444444444444444444444444444444",
+  token: "0x3600000000000000000000000000000000000000",
   tokenDecimals: 6,
   moduleCodeHash: `0x${"ab".repeat(32)}`,
   circleWallet: executor,
@@ -102,6 +102,31 @@ describe("secret-redacted activation inspection", () => {
     expect(report.workspaceConfigured).toBe(true);
     expect(report.executionConfigured).toBe(true);
     expect(check(report, "documents.key").requiredFor).toBe("optional");
+  });
+
+  it.each([
+    { chainId: 1, circleChain: "ETH", testnet: false },
+    { testnet: false },
+    { token: "0x4444444444444444444444444444444444444444" },
+    { tokenDecimals: 18 },
+    { circleChain: "ETH-SEPOLIA" },
+  ])("never reports unsupported financial networks configured: %j", (override) => {
+    const report = inspectActivation({
+      env: { DATABASE_URL: env.DATABASE_URL, SOURCE_RPC_URL: env.SOURCE_RPC_URL, CIRCLE_CLI_HOME: "/fixture/profile", EXECUTION_ENABLED: "true" },
+      manifest: { ...manifest, ...override }, now, profile: "worker",
+    });
+    expect(report.executionConfigured).toBe(false);
+    expect(report.mainnetEnabled).toBe(false);
+    expect(check(report, "execution.network").status).toBe("invalid");
+  });
+
+  it("reports the fixed testnet boundary even without configuration", () => {
+    const missing = inspectActivation({ env: {}, now });
+    expect(missing.mainnetEnabled).toBe(false);
+    expect(check(missing, "execution.network").status).toBe("missing");
+    const configured = inspectActivation({ env, manifest, now });
+    expect(check(configured, "execution.network").status).toBe("configured");
+    expect(configured.mainnetEnabled).toBe(false);
   });
 
   it("rejects stale, conflicting and future deployment evidence", () => {

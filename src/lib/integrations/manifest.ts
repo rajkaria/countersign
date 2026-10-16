@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { keccak256, type Address } from "viem";
 import { chainClient } from "./chain";
+import { assertTestnetExecutionNetwork } from "./execution-network";
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 const date = z.string().datetime({ offset: true });
@@ -36,7 +37,8 @@ export const deploymentManifestSchema = z
   .strict();
 export type DeploymentManifest = z.infer<typeof deploymentManifestSchema>;
 /** Recheck cached evidence whenever new work is authorized or submitted. Expiry never erases existing operations. */
-function assertManifestDates(m: DeploymentManifest, purpose: "execution" | "reconciliation") {
+function assertManifestEvidence(m: DeploymentManifest, purpose: "execution" | "reconciliation") {
+  if (purpose === "execution") assertTestnetExecutionNetwork(m);
   const now = Date.now();
   const expires = Date.parse(m.expiresAt),
     verified = Date.parse(m.verifiedAt),
@@ -50,7 +52,7 @@ function assertManifestDates(m: DeploymentManifest, purpose: "execution" | "reco
     throw new Error("Deployment evidence is stale or future-dated");
 }
 export function assertCurrentDeploymentManifest(m: DeploymentManifest) {
-  assertManifestDates(m, "execution");
+  assertManifestEvidence(m, "execution");
 }
 /** A manifest is an operator-approved evidence bundle, not a self-certifying audit. Verify current bytecode/chain separately. */
 export async function loadDeploymentManifest(options: { purpose?: "execution" | "reconciliation" } = {}): Promise<DeploymentManifest | null> {
@@ -60,7 +62,7 @@ export async function loadDeploymentManifest(options: { purpose?: "execution" | 
   const raw = inline ?? (await readFile(path!, "utf8"));
   if (raw.length > 64_000) throw new Error("Deployment manifest too large");
   const m = deploymentManifestSchema.parse(JSON.parse(raw));
-  assertManifestDates(m, options.purpose ?? "execution");
+  assertManifestEvidence(m, options.purpose ?? "execution");
   return m;
 }
 export async function verifyDeploymentManifest(
@@ -69,7 +71,7 @@ export async function verifyDeploymentManifest(
   options: { purpose?: "execution" | "reconciliation" } = {},
 ) {
   const purpose = options.purpose ?? "execution";
-  assertManifestDates(m, purpose);
+  assertManifestEvidence(m, purpose);
   const client = chainClient(rpcUrl);
   if ((await client.getChainId()) !== m.chainId)
     throw new Error("Manifest chain does not match RPC");
@@ -94,7 +96,7 @@ export async function verifyDeploymentManifest(
     throw new Error(
       "Deployment bytecode or finalized evidence does not match manifest",
     );
-  assertManifestDates(m, purpose);
+  assertManifestEvidence(m, purpose);
   return {
     verified: true,
     limitations: [

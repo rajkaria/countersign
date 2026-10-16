@@ -123,9 +123,11 @@ async function handle(
       return reply({
         service: "countersign",
         status: "ok",
-      version: softwareVersion,
+        version: softwareVersion,
         workspaceConfigured: workspaceConfiguration().workspaceConfigured,
         executionEnabled: false,
+        mainnetEnabled: false,
+        executionScope: "arc-testnet-only",
       });
     const db = database();
     if (path[0] === "ready") {

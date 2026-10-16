@@ -2,7 +2,17 @@
 
 This is a source-level review and regression-test record from the implementation team. It is **not an independent security audit**, penetration test, assurance certification, or approval for mainnet delegation. Review scope: authentication and tenant checks, versioned records, payment review/preparation, database constraints, document storage, API boundaries, deterministic domain controls and the new Solidity contracts.
 
-## Corrections made
+## Testnet activation boundary, 16 October 2026
+
+New permit signatures, Circle estimates and Circle submissions now require direct Arc Testnet 5042002, `ARC-TESTNET`, canonical six-decimal USDC and a same-chain destination. The deployment manifest must explicitly declare testnet. Cached evidence is rechecked immediately before signing and after simulation. Mainnet and cross-chain execution cannot be enabled by environment flags. All fresh destination-relay broadcasts are disabled; existing operations retain read-only source/provider/destination reconciliation and original uncertain identities.
+
+The unsigned `testnet:plan` tool proposes exact Safe setup and recovery calldata, at most 1 test USDC of authority, a bounded expiry and an optional separate funding proposal. A finalized readback can compare owners, threshold and fresh module/token state. Neither generated calldata, code presence, a dummy wallet, a successful readback nor an AI review is independent custody or security approval. See [activation](/docs/activation#testnet-only-first-payment).
+
+Fresh provider investigation on 16 October finds latest Circle CLI **1.2.2**, published 14 October, still depending on Forge and the ethers 5.8.0 chain. Current Forge 1.4.0 and Elliptic 6.6.1 have no patched release for the two linked advisories below. The locked runtime again reports **2 high / 7 low package entries**, with no available fix for either root. Updating only the CLI does not resolve this gate; the reviewed adapter lock is retained. No advisory suppression, crypto patch or signer substitution is introduced. The strict provider audit remains failing and financial execution stays disabled until a supported reviewed resolution exists.
+
+Circle's [published authentication flow](https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/authenticate) uses an owner-entered email OTP and separate testnet session. Its [custom spending policies](https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/custom-policies) apply only to mainnet, so they cannot be presented as a testnet control. The Safe/module caps and actual independent owner recovery remain necessary. OTP entry follows provider resolution; it does not resolve dependency findings.
+
+## Earlier implementation corrections
 
 | Finding | Correction and boundary |
 |---|---|

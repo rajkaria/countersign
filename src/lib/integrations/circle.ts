@@ -9,6 +9,7 @@ import {
   type ModulePermit,
 } from "./module";
 import type { Hex } from "viem";
+import { assertTestnetExecutionNetwork } from "./execution-network";
 const execFileAsync = promisify(execFile);
 export type CircleConfig = {
   binary: string;
@@ -76,6 +77,8 @@ export class CircleExecutor {
   private validate(request: CircleRequest, execution: boolean) {
     const p = modulePermitSchema.parse(request.permit),
       c = this.config;
+    assertTestnetExecutionNetwork({ chainId: c.chainId, token: c.token, circleChain: c.chain });
+    assertTestnetExecutionNetwork(p);
     if (
       execution &&
       (!c.executionEnabled ||

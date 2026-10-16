@@ -10,6 +10,7 @@ import {
 import { validateProposal } from "../../src/lib/integrations/agent";
 import { githubPullRequest } from "../../src/lib/integrations/github";
 const address = "0x1111111111111111111111111111111111111111";
+const usdc = "0x3600000000000000000000000000000000000000";
 const config: CircleConfig = {
   binary: "/usr/local/bin/circle",
   wallet: address,
@@ -17,7 +18,7 @@ const config: CircleConfig = {
   chainId: 5042002,
   module: address,
   safe: address,
-  token: address,
+  token: usdc,
   tenantId: "org",
   compatibilityVerified: true,
   revocationVerified: true,
@@ -39,7 +40,7 @@ const permit = {
   sourceChainId: "5042002",
   destinationChainId: "5042002",
   recipient: address,
-  token: address,
+  token: usdc,
   amount: "100",
   maxFee: "0",
   route: "0x" + "55".repeat(32),
@@ -51,6 +52,54 @@ const permit = {
   minFinalityThreshold: "0",
 };
 describe("fixed Circle execution boundary", () => {
+  it.each([
+    { label: "Arc mainnet", chainId: 5042, chain: "ARC" },
+    { label: "Ethereum mainnet", chainId: 1, chain: "ETH" },
+    { label: "a local chain", chainId: 31337, chain: "ARC-TESTNET" },
+    { label: "another testnet", chainId: 84532, chain: "BASE-SEPOLIA" },
+    { label: "a contradictory Circle route", chainId: 5042002, chain: "ARC" },
+  ])("blocks $label before any Circle command even with all release flags enabled", async ({ chainId, chain }) => {
+    const calls: string[][] = [];
+    const executor = new CircleExecutor({ ...config, executionEnabled: true, chainId, chain }, async (args) => {
+      calls.push(args);
+      return args.includes("list")
+        ? { wallets: [{ type: "agent", address, blockchain: chain }] }
+        : { id: "must-not-submit", state: "SENT" };
+    });
+    const request = {
+      tenantId: "org",
+      operationId: "11111111-1111-4111-8111-111111111111",
+      permit: modulePermitSchema.parse({ ...permit, chainId: String(chainId), sourceChainId: String(chainId), destinationChainId: String(chainId) }),
+      signature: "0x1234" as const,
+    };
+    await expect(executor.submit(request)).rejects.toThrow(/Arc testnet only/i);
+    await expect(executor.estimate(request)).rejects.toThrow(/Arc testnet only/i);
+    expect(calls).toEqual([]);
+  });
+  it.each([
+    { destinationChainId: "5042" },
+    { destinationChainId: "1" },
+    { destinationChainId: "84532" },
+    { sourceChainId: "1" },
+    { token: address },
+  ])("rejects an unsupported permit network or asset before wallet discovery: %j", async (change) => {
+    const calls: string[][] = [];
+    const executor = new CircleExecutor({ ...config, executionEnabled: true, ...(change.token ? { token: change.token } : {}) }, async (args) => {
+      calls.push(args);
+      return args.includes("list")
+        ? { wallets: [{ type: "agent", address, blockchain: "ARC-TESTNET" }] }
+        : { id: "must-not-submit", state: "SENT" };
+    });
+    await expect(executor.submit({ tenantId: "org", operationId: "11111111-1111-4111-8111-111111111111", permit: modulePermitSchema.parse({ ...permit, ...change }), signature: "0x1234" })).rejects.toThrow(/Arc testnet only/i);
+    expect(calls).toEqual([]);
+  });
+  it("keeps provider lookup available for an existing operation after execution authority expires", async () => {
+    const executor = new CircleExecutor({ ...config, executionEnabled: false, chainId: 5042, chain: "ARC", deploymentEvidenceExpiresAt: "2000-01-01T00:00:00Z" }, async (args) => {
+      if (args[0] !== "transaction" || args[1] !== "list") throw new Error("New send authority must not be used");
+      return { transactions: [{ id: "existing-provider-operation", state: "CONFIRMED", txHash: "0x" + "11".repeat(32) }] };
+    });
+    await expect(executor.lookup("existing-provider-operation")).resolves.toMatchObject({ id: "existing-provider-operation", state: "CONFIRMED" });
+  });
   it("refuses newly submitted work if deployment evidence expires during wallet discovery", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-13T00:00:00Z"));

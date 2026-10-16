@@ -6,7 +6,9 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
-Version 0.8.0 adds a refreshed finance interface, explanatory agreement/check/capacity/receipt graphics, a task-based handbook home and 34 public guides. Interactive teaching diagrams explain ASK, HOLD and PAY; keyboard search, grouped mobile navigation and a mobile page outline make the detail easier to find. The guided demo remains the consistent first entry.
+Version 0.9.0 adds a code-enforced Arc testnet boundary and an unsigned owner-approval planner for the first payment, capped at 1 test USDC. Mainnet and new cross-chain submissions are disabled. Provider security, genuine Circle compatibility and independent recovery remain activation gates; no testnet invoice payment is claimed. Follow [the testnet setup workflow](docs/activation.md#testnet-only-first-payment).
+
+The refreshed finance interface includes agreement/check/capacity/receipt graphics, a task-based handbook home and 34 public guides. Interactive teaching diagrams explain ASK, HOLD and PAY; keyboard search, grouped mobile navigation and a mobile page outline make the detail easier to find. The guided demo remains the consistent first entry.
 
 DeepSeek and OpenAI support, explicitly opted-in actual-model comparisons, external EOA sign-in and source-cited clarification remain available. A dedicated database and bounded operations host are active with explicitly synthetic records; financial execution remains gated. Open **Setup** after owner sign-in to distinguish configuration, database readback and external financial authorization. See [release status](https://www.usecountersign.xyz/docs/release-status) for exact availability.
 

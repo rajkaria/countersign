@@ -1,6 +1,6 @@
 # Release status
 
-Updated 16 October 2026 for software version 0.8.0. This page distinguishes software capability from externally verified production operation.
+Updated 16 October 2026 for software version 0.9.0. This page distinguishes software capability from externally verified production operation.
 
 ## Finding your way
 
@@ -15,6 +15,9 @@ One operations-only worker is hosted separately on Railway with fixed CPU/memory
 The home-page demo button opens the wallet-free [guided walkthrough](/review). It includes five reproducible browser cases and a separate recorded-evidence section summarizing the completed synthetic DeepSeek request, manual Arc transfer and persistence/restore checks. Inspect or download the authored summary without contacting a model, wallet or payment provider. The interactive fixtures and recorded checks remain distinct.
 
 ## Implemented software
+
+- A code-enforced direct Arc testnet boundary before new permit signatures, estimates and submissions. Mainnet, other testnets and new cross-chain broadcasts are disabled; original-operation reconciliation remains available.
+- An offline unsigned owner-approval planner with exact Safe/module setup and recovery calldata, at most 1 test USDC of authority, expiry within 24 hours and the worker stop, a canonical plan hash and optional finalized read-only owner/module/token checks. It creates no consent, independent review, funding or active delegation. See [testnet activation](/docs/activation#testnet-only-first-payment).
 
 - A responsive landing page, searchable synthetic workspace, read-only onboarding UI and detailed handbook.
 - Injected-wallet and external EOA challenge/signature authentication, tenant-scoped records, versioned terms, private encrypted document intake, customer acceptance and case-scoped vendor corrections.

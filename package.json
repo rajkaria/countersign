@@ -1,6 +1,6 @@
 {
   "name": "countersign",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,6 +22,7 @@
     "pilot": "tsx scripts/pilot.ts",
     "doctor": "tsx scripts/doctor.ts",
     "activation:check": "tsx scripts/activation-check.ts",
+    "testnet:plan": "tsx scripts/testnet-plan.ts",
     "db:restore:verify": "tsx scripts/restore-check.ts"
   },
   "dependencies": {

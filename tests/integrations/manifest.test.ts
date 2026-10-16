@@ -3,6 +3,7 @@ import { keccak256 } from "viem";
 import {
   loadDeploymentManifest,
   verifyDeploymentManifest,
+  assertCurrentDeploymentManifest,
   type DeploymentManifest,
 } from "../../src/lib/integrations/manifest";
 
@@ -58,6 +59,37 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("current deployment evidence at every new submission", () => {
+  it.each([
+    { label: "Arc mainnet", change: { chainId: 5042, circleChain: "ARC", testnet: false } },
+    { label: "another mainnet", change: { chainId: 1, circleChain: "ETH", testnet: false } },
+    { label: "a local chain", change: { chainId: 31337 } },
+    { label: "another testnet", change: { chainId: 84532, circleChain: "BASE-SEPOLIA" } },
+    { label: "a mainnet Circle route", change: { circleChain: "ARC" } },
+    { label: "a false testnet declaration", change: { testnet: false } },
+    { label: "a different token", change: { token: "0x" + "99".repeat(20) } },
+    { label: "wrong token precision", change: { tokenDecimals: 18 } },
+  ])("rejects $label before authorizing or probing a deployment", async ({ change }) => {
+    const candidate = { ...manifest, ...change };
+    vi.stubEnv("EXECUTION_MANIFEST_JSON", JSON.stringify(candidate));
+    await expect(loadDeploymentManifest()).rejects.toThrow(/Arc testnet only/i);
+    expect(() => assertCurrentDeploymentManifest(candidate)).toThrow(/Arc testnet only/i);
+    await expect(verifyDeploymentManifest(candidate, "https://fixture.invalid")).rejects.toThrow(/Arc testnet only/i);
+    expect(chainClient).not.toHaveBeenCalled();
+  });
+  it("rejects an RPC chain that contradicts the approved Arc testnet manifest", async () => {
+    client.getChainId.mockResolvedValue(5042);
+    await expect(verifyDeploymentManifest(manifest, "https://fixture.invalid")).rejects.toThrow(/chain does not match RPC/);
+    expect(client.getCode).not.toHaveBeenCalled();
+  });
+  it("retains expired non-allowlisted identity evidence only for existing-operation reconciliation", async () => {
+    const candidate = { ...manifest, chainId: 5042, circleChain: "ARC", testnet: false };
+    vi.stubEnv("EXECUTION_MANIFEST_JSON", JSON.stringify(candidate));
+    vi.setSystemTime(new Date(manifest.expiresAt));
+    client.getChainId.mockResolvedValue(5042);
+    const loaded = await loadDeploymentManifest({ purpose: "reconciliation" });
+    await expect(verifyDeploymentManifest(loaded!, "https://fixture.invalid", { purpose: "reconciliation" })).resolves.toMatchObject({ verified: true });
+    expect(() => assertCurrentDeploymentManifest(loaded!)).toThrow();
+  });
   it("rejects a cached manifest at its exact expiry before any RPC call", async () => {
     const loaded = await loadDeploymentManifest();
     expect(loaded).not.toBeNull();

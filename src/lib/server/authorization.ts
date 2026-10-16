@@ -9,7 +9,9 @@ import { audit, lockOrganization } from "./records";
 import {
   loadDeploymentManifest,
   verifyDeploymentManifest,
+  assertCurrentDeploymentManifest,
 } from "../integrations/manifest";
+import { assertTestnetExecutionNetwork } from "../integrations/execution-network";
 import {
   chainClient,
   checkModuleDeployment,
@@ -113,6 +115,12 @@ export async function authorizePreparedPayment(
   if (!eligibilityDecision.executable || eligibilityDecision.action !== "PAY")
     throw new ServiceError(409, "PAYMENT_HELD", eligibilityDecision.reason);
   const { input } = result;
+  assertTestnetExecutionNetwork({
+    chainId: input.engagement.asset.chainId,
+    token: input.engagement.asset.address,
+    tokenDecimals: input.engagement.asset.decimals,
+    destinationChainId: input.invoice.destination.chainId,
+  });
   await verifyDeploymentManifest(manifest, rpc);
   const client = chainClient(rpc),
     engagementId = keccak256(stringToHex(input.engagement.id)),
@@ -200,6 +208,7 @@ export async function authorizePreparedPayment(
         destinationDomain: cross ? process.env.CCTP_DESTINATION_DOMAIN : "0",
         minFinalityThreshold: cross ? "2000" : "0",
       });
+  assertTestnetExecutionNetwork(p);
   if (
     p.amount !== eligibilityDecision.amount ||
     p.engagementVersion !== String(input.engagement.version) ||
@@ -291,6 +300,7 @@ export async function authorizePreparedPayment(
     permit: p,
     executor: manifest.circleWallet as Address,
   });
+  assertCurrentDeploymentManifest(manifest);
   const signature = await signer.signTypedData({
     domain: {
       name: "Countersign",
@@ -323,6 +333,7 @@ export async function authorizePreparedPayment(
     ],
     account: manifest.circleWallet as Address,
   } as never);
+  assertCurrentDeploymentManifest(manifest);
   const bound = {
     ...row.permit,
     decisionId: result.id,

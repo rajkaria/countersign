@@ -3,13 +3,13 @@ import { readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
-import { keccak256, stringToHex, parseAbi, type Address, type Hex } from "viem";
+import { keccak256, stringToHex, type Address, type Hex } from "viem";
 import { type Database, ServiceError } from "../server/db";
 import { type Actor, requireRole } from "../server/auth";
 import { audit } from "../server/records";
 import type { PaymentRow } from "../server/worker";
 import { modulePermitSchema, permitDigest, type ModulePermit } from "./module";
-import { chainClient, CCTP_ROUTE, verifySourceSettlement } from "./chain";
+import { CCTP_ROUTE, verifySourceSettlement } from "./chain";
 import {
   fetchCctpAttestation,
   validateCctpMessage,
@@ -71,12 +71,6 @@ export type RelayDependencies = {
   runner?: CircleRunner;
   fetcher?: Fetcher;
   verifySource?: typeof verifySourceSettlement;
-  preflight?: (
-    config: DestinationRelayConfig,
-    permit: ModulePermit,
-    message: Hex,
-    attestation: Hex,
-  ) => Promise<void>;
   verifyDestination?: typeof verifyCctpDestination;
 };
 type RelayRow = {
@@ -106,10 +100,6 @@ const txSchema = z
     transactionHash: hash.optional(),
   })
   .passthrough();
-const receiveAbi = parseAbi([
-  "function receiveMessage(bytes message,bytes attestation) returns(bool)",
-  "function usedNonces(bytes32 nonce) view returns(uint256)",
-]);
 const execFileAsync = promisify(execFile);
 /** UUIDv5 with a dedicated namespace/name: a relay can never reuse the source payment's provider operation identity. */
 export function relayOperationId(
@@ -184,77 +174,6 @@ function defaultRunner(config: DestinationRelayConfig): CircleRunner {
     return JSON.parse(result.stdout).data;
   };
 }
-async function preflight(
-  config: DestinationRelayConfig,
-  permit: ModulePermit,
-  message: Hex,
-  attestation: Hex,
-) {
-  const client = chainClient(config.destinationRpcUrl);
-  if ((await client.getChainId()) !== config.destinationChainId)
-    throw new Error("Destination RPC chain mismatch");
-  const [transmitter, messenger, receipt, transaction, finalized] =
-    await Promise.all([
-      client.getCode({ address: config.destinationTransmitter as Address }),
-      client.getCode({ address: config.destinationMessenger as Address }),
-      client.getTransactionReceipt({
-        hash: config.review.compatibilityTransaction as Hex,
-      }),
-      client.getTransaction({
-        hash: config.review.compatibilityTransaction as Hex,
-      }),
-      client.getBlock({ blockTag: "finalized" }),
-    ]);
-  if (
-    !transmitter ||
-    keccak256(transmitter).toLowerCase() !==
-      config.destinationTransmitterCodeHash.toLowerCase() ||
-    !messenger ||
-    keccak256(messenger).toLowerCase() !==
-      config.destinationMessengerCodeHash.toLowerCase()
-  )
-    throw new Error(
-      "Destination deployment code does not match reviewed relay configuration",
-    );
-  if (
-    receipt.status !== "success" ||
-    finalized.number === null ||
-    receipt.blockNumber > finalized.number ||
-    transaction.to?.toLowerCase() !==
-      config.destinationTransmitter.toLowerCase() ||
-    transaction.from.toLowerCase() !== config.circle.wallet.toLowerCase() ||
-    !transaction.input
-      .toLowerCase()
-      .startsWith(
-        keccak256(stringToHex("receiveMessage(bytes,bytes)")).slice(0, 10),
-      )
-  )
-    throw new Error(
-      "Destination Circle receiveMessage compatibility evidence is not a finalized matching call",
-    );
-  const parsed = validateRelayMessage(message, permit, config);
-  if (
-    (await client.readContract({
-      address: config.destinationTransmitter as Address,
-      abi: receiveAbi,
-      functionName: "usedNonces",
-      args: [parsed.nonce],
-    })) !== 0n
-  )
-    throw new Error(
-      "Message nonce already received; attach its existing destination transaction for reconciliation",
-    );
-  // This read-only simulation checks attestation signatures and the fixed recipient path at the real destination contract.
-  const simulation = await client.simulateContract({
-    address: config.destinationTransmitter as Address,
-    abi: receiveAbi,
-    functionName: "receiveMessage",
-    args: [message, attestation],
-    account: config.circle.wallet as Address,
-  });
-  if (simulation.result !== true)
-    throw new Error("Destination receiveMessage simulation did not succeed");
-}
 function validateRelayMessage(
   message: Hex,
   permit: ModulePermit,
@@ -315,8 +234,8 @@ async function lookup(
   );
 }
 /**
- * Use an AUTOCOMMIT pool/connection. Never wrap this hook in a transaction spanning the external submission.
- * The submitting transition must be durably committed before the provider can be called.
+ * Reconcile existing CCTP source/destination operations using an AUTOCOMMIT connection.
+ * Fresh receiveMessage broadcasts are disabled on every network in this release.
  * Dependencies are server-side test seams; never accept them or config from a model/public request.
  */
 export async function runDestinationRelay(
@@ -458,8 +377,7 @@ export async function runDestinationRelay(
   }
   if (!row.message || !row.attestation)
     throw new Error("Durable relay message is incomplete");
-  const message = row.message as Hex,
-    attestation = row.attestation as Hex;
+  const message = row.message as Hex;
   validateRelayMessage(message, permit, config);
   if (keccak256(message) !== row.message_hash)
     throw new Error("Stored relay message commitment mismatch");
@@ -518,91 +436,12 @@ export async function runDestinationRelay(
     )
   )
     return { finalized: false, transaction: "" };
-  if (!config.enabled)
-    throw new Error(
-      "Destination relay submission is disabled; reconciliation remains available",
-    );
-  if (
-    Date.parse(config.review.expiresAt) <= Date.now() ||
-    Date.parse(config.review.verifiedAt) > Date.now()
-  )
-    throw new Error(
-      "Destination relay review evidence expired or is future-dated",
-    );
-  await (deps.preflight ?? preflight)(config, permit, message, attestation);
-  const wallets = z
-    .object({
-      wallets: z.array(
-        z.object({
-          type: z.string(),
-          address: z.string(),
-          blockchain: z.string(),
-        }),
-      ),
-    })
-    .parse(
-      await runner([
-        "wallet",
-        "list",
-        "--chain",
-        config.circle.chain,
-        "--type",
-        "agent",
-        "--output",
-        "json",
-      ]),
-    );
-  if (
-    !wallets.wallets.some(
-      (w) =>
-        w.type === "agent" &&
-        w.address.toLowerCase() === config.circle.wallet.toLowerCase() &&
-        w.blockchain === config.circle.chain,
-    )
-  )
-    throw new Error(
-      "Configured destination Circle agent wallet is unavailable; no EOA fallback is allowed",
-    );
-  const claim = await db.query(
-    "UPDATE destination_relays SET state='submitting',attempts=attempts+1,submitted_at=now(),updated_at=now() WHERE id=$1 AND organization_id=$2 AND state='prepared' AND attempts=0 AND transaction_hash IS NULL RETURNING id",
-    [relayId, payment.organization_id],
+  // This release creates payment authority only for direct Arc testnet transfers.
+  // Existing provider lookup, attached receipts, and unknown-operation identities above
+  // remain reconcilable even when their original review has expired.
+  throw new Error(
+    "Destination relay submission is disabled on every network; only direct Arc testnet payments can create new financial authority. Reconcile the existing destination operation.",
   );
-  if (!claim.rows.length) return { finalized: false, transaction: "" };
-  try {
-    const result = txSchema.parse(
-      await runner([
-        "wallet",
-        "execute",
-        "receiveMessage(bytes,bytes)",
-        message,
-        attestation,
-        "--contract",
-        config.destinationTransmitter,
-        "--address",
-        config.circle.wallet,
-        "--chain",
-        config.circle.chain,
-        "--amount",
-        "0",
-        "--idempotency-key",
-        relayId,
-        "--output",
-        "json",
-      ]),
-    );
-    const tx = result.txHash ?? result.transactionHash ?? null;
-    await db.query(
-      "UPDATE destination_relays SET state='submitted',provider_id=$3,transaction_hash=COALESCE(transaction_hash,$4),last_error=NULL,updated_at=now() WHERE id=$1 AND organization_id=$2 AND state IN ('submitting','uncertain')",
-      [relayId, payment.organization_id, result.id, tx],
-    );
-    return { finalized: false, transaction: tx ?? "" };
-  } catch {
-    await db.query(
-      "UPDATE destination_relays SET state='uncertain',last_error='Destination submission outcome is unknown; reconcile the existing relay identity',updated_at=now() WHERE id=$1 AND organization_id=$2 AND state='submitting'",
-      [relayId, payment.organization_id],
-    );
-    return { finalized: false, transaction: "" };
-  }
 }
 /** Attach evidence only. Never submits a transaction or marks an invoice settled. Use the authenticated API transaction. */
 export async function attachDestinationRelayTransaction(

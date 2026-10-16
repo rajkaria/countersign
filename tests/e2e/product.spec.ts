@@ -43,7 +43,12 @@ test("health is public but private workspace data cannot be retrieved anonymousl
 }) => {
   const health = await request.get("/api/health");
   expect(health.status()).toBe(200);
-  expect((await health.json()).version).toBe(expectedVersion);
+  expect(await health.json()).toMatchObject({
+    version: expectedVersion,
+    executionEnabled: false,
+    mainnetEnabled: false,
+    executionScope: "arc-testnet-only",
+  });
   const response = await request.get(
     "/api/organizations/11111111-1111-4111-8111-111111111111/snapshot",
   );

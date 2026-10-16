@@ -42,7 +42,7 @@ node --env-file=/secure/countersign-verifier.env --import tsx scripts/doctor.ts 
 | failed | An explicit readback could not establish the named fact. |
 | owner_action | A human prerequisite remains outside this diagnostic. |
 
-The JSON report exposes `workspaceConfigured`, `executionConfigured`, `databaseVerified`, `deploymentVerified` and `financialActivationVerified`. The last value remains false because the tool cannot attest owner funding authorization, consent, independent review, provider terms or protection capital. Check descriptions identify the narrower fact established by a readback.
+The JSON report exposes `workspaceConfigured`, `executionConfigured`, `mainnetEnabled`, `databaseVerified`, `deploymentVerified` and `financialActivationVerified`. `mainnetEnabled` is always false. The financial-verification value remains false because the tool cannot attest owner funding authorization, consent, independent review, provider terms or protection capital. Check descriptions identify the narrower fact established by a readback.
 
 `--probe` makes no model generation requests, signs no permit, creates no account, submits no transaction and sends no message. Database probes use a dedicated connection and a read-only transaction. Provider probes are GET requests with redirects refused and bounded responses: selected OpenAI model access or the selected model in DeepSeek's read-only model list, configured GitHub repository access and Telegram bot identity. JSON-RPC deployment readbacks inspect the manifest chain, module bytecode and finalized compatibility/revocation receipts. Telegram destination membership and delivery, model extraction capability and PR acceptance are not inferred from access checks.
 
@@ -65,6 +65,32 @@ Generate the document key with `openssl rand -base64 32`; generate a separate wo
 The migration probe discovers the exact SQL migration filenames in the checkout, including administrative access metadata. It compares the deployed registry against that revision and checks expected tables and columns added by security migrations. Missing or unknown versions fail readiness. This comparison does not prove historical SQL contents, least privilege or isolation: perform the authenticated tenant tests and restore rehearsal as separate acceptance steps.
 
 ## Deployment and custody templates
+
+### Testnet-only first payment
+
+New payment authority is restricted in code to **Arc Testnet 5042002**, Circle `ARC-TESTNET`, canonical USDC `0x3600000000000000000000000000000000000000`, six decimals, and a recipient on that same chain. Mainnet, other testnets and new cross-chain broadcasts are disabled regardless of environment flags. Existing operations keep their original identities and can still be reconciled; no new relay broadcast is created. Public health declares this release scope; it does not certify that a financial worker is running or that an owner has approved payment.
+
+Prepare an exact unsigned owner proposal before requesting signatures:
+
+```sh
+npm run testnet:plan -- --help
+# Copy the public example OUTSIDE the repository and fill actual public identities.
+# Keep the input private (0600); never add a key, OTP, session, RPC URL or invoice original.
+npm run testnet:plan -- --input /private/testnet-input.json --out /private/new-plan
+# Optional finalized, read-only chain checks; RPC stays in private environment configuration.
+node --env-file=/private/read-only-rpc.env --import tsx scripts/testnet-plan.ts \
+  --input /private/testnet-input.json --out /private/new-probed-plan --probe
+```
+
+`config/testnet-approval.example.json` is a clearly fictional input, not deployed contract evidence. The CLI accepts a bounded private regular JSON file, creates a new directory with mode 0700 outside this repository and writes files with mode 0600 without overwriting. The default is offline. Output contains public identities and exact calldata, with no signature, transaction submission, provisioning, provider login or consent claim.
+
+The first-proof plan caps per-payment, rolling 24-hour, lifetime, engagement and obligation authority at the same exact positive amount of **at most 1 test USDC**. Expiry must be within 24 hours and no later than the explicit worker stop. Exact UTF-8 application engagement/obligation identifiers are hashed using the same method as server authorization. Setup calls are ordered `enableModule`, `setEngagement`, `setObligation`, then `configure`. **Configure unpauses** and must be reviewed as an authority change. Optional funding is a separate proposal and approval. Recovery calldata contains owner `pause` and `revoke` calls. The canonical plan hash binds every identity, limit, call, order and explanation.
+
+`--probe` checks one finalized snapshot: RPC chain, code presence, Safe owner set/threshold, module Safe/token/zero-reserve bindings, a fresh paused/unconfigured module and token decimals. It records code hashes and block identity. It rejects existing configured modules; it is a first-setup tool, not a migration tool. These reads do not establish reviewed bytecode provenance, Circle wallet ownership, independent custody, current business acceptance or provider security approval. Read back the resulting setup, policy epoch and owner recovery after separately approved setup transactions. A dummy wallet on the same computer cannot establish independent recovery.
+
+Circle's [authentication flow](https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/authenticate) supports a separate testnet session. Once the provider security gate is resolved, run the reviewed CLI's interactive `circle wallet login YOUR_EMAIL --testnet` in the owner's terminal. The owner reviews terms and enters the emailed OTP directly. Do not give an agent inbox access or put an OTP in chat, shell arguments or source files. List the resulting **agent** wallet on `ARC-TESTNET` and verify its exact public address; a Console login or local EOA does not establish this identity. Session renewal and recovery need an actual drill before unattended operation.
+
+Circle [custom spending policies](https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/custom-policies) support **mainnet only**, not testnet. Do not enable mainnet to obtain that feature. Testnet bounds must come from the independently reviewed Safe/module setup. The unresolved provider dependencies remain a financial activation gate; see [security review](/docs/security-review). No generated plan or OTP approval bypasses that gate.
 
 The `config/` directory contains empty worker/verifier/restore environment templates and intentionally incomplete deployment/relay JSON templates. Empty evidence fields are invalid by design; fill them with actual reviewed deployment facts. Do not substitute example hashes or copy a test manifest into production.
 

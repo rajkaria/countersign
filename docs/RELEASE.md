@@ -1,5 +1,15 @@
 # Release verification and activation
 
+## 16 October 2026 — 0.9.0 testnet activation engineering
+
+New financial authority is restricted to direct Arc Testnet 5042002 and canonical six-decimal USDC. Manifest validation, verifier authorization and Circle estimate/submission share the boundary. Mainnet and fresh cross-chain relay broadcasts are disabled regardless of flags. Existing submitted and uncertain operation identities retain read-only reconciliation. Authorization rechecks evidence expiry before signing and after simulation; activation diagnostics expose the same network restriction.
+
+`npm run testnet:plan` generates exact unsigned Safe setup, optional separate funding and owner pause/revoke calldata. It caps the first proof at 1 test USDC, binds all identities/limits/calls/order in a canonical hash, and can inspect finalized Safe/module/token state through a read-only RPC. Private bounded input and new private output files remain outside application publication. Dummy public owner addresses do not establish independent recovery. The module activation call is last because `configure` unpauses it.
+
+The provider runtime remains gated: latest Circle CLI 1.2.2 retains the two unresolved dependency roots, and the locked runtime audit still reports 2 high / 7 low package entries. The strict audit is unchanged. There is no cryptographic patch, audit suppression or signer replacement. No Circle OTP/login, contract deployment, wallet approval, funding, permit signature or payment is performed by this release. Existing operations-worker budget and expiry are unchanged. Public health declares `mainnetEnabled=false` and the Arc-testnet-only release scope; financial activation remains disabled.
+
+Local Node 22.14 verification passes: 393 application tests across 39 files, 32 Foundry tests including fuzz/invariants, TypeScript, lint, production build, boundary checks, four worker packaging tests and all 74 desktop/mobile browser cases. Focused code review found no actionable issues; it is not independent financial-security certification. Web and common worker production audits report zero findings. The separate Circle provider audit remains failing as described above. Exact hosted checks and production readbacks are recorded in the private release handoff; green application tests do not establish financial activation.
+
 ## 16 October 2026 — 0.8.0 interface and handbook
 
 The homepage uses a clearer finance composition with agreement, verification, capacity and receipt graphics. Shared semantic tokens align the sample workspace, console, sign-in and review surfaces. Mobile marketing navigation and a three-step walkthrough index improve orientation.

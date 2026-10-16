@@ -88,7 +88,7 @@ const config: DestinationRelayConfig = {
     verifiedAt: "2026-01-01T00:00:00Z",
     expiresAt: "2030-01-01T00:00:00Z",
   },
-  testnet: true,
+  testnet: false,
   enabled: true,
 };
 const payment: PaymentRow = {
@@ -149,7 +149,7 @@ const attestation = `0x${"ab".repeat(65)}`;
 let pg: PGlite, db: Database;
 function deps(
   options: {
-    timeout?: boolean;
+    circleChain?: string;
     message?: Hex;
     complete?: boolean;
     verifyFails?: boolean;
@@ -157,14 +157,13 @@ function deps(
 ): RelayDependencies & { runner: Mock<CircleRunner> } {
   const runner = vi.fn<CircleRunner>(async (args: string[]) => {
     if (args[0] === "wallet" && args[1] === "list")
-      return { wallets: [{ type: "agent", address: c, blockchain: "BASE" }] };
+      return { wallets: [{ type: "agent", address: c, blockchain: options.circleChain ?? "BASE" }] };
     if (args[0] === "transaction")
       return {
         transactions: [
           { id: "relay-provider", state: "COMPLETE", txHash: destination },
         ],
       };
-    if (options.timeout) throw new Error("timeout");
     return { id: "relay-provider", state: "PENDING", txHash: destination };
   });
   return {
@@ -187,7 +186,6 @@ function deps(
       blockNumber: "100",
       crossChain: true,
     })),
-    preflight: vi.fn(async () => {}),
     verifyDestination: vi.fn(async () => {
       if (options.verifyFails) throw new Error("Wrong destination event");
       return {
@@ -235,231 +233,91 @@ beforeEach(async () => {
   );
 });
 afterAll(() => pg.close());
+/** Seed the already-existing operation without granting permission for a new broadcast. */
+async function existingRelay(state: "uncertain" | "submitted", providerId: string | null = null) {
+  await expect(runDestinationRelay(db, payment, permit, { ...config, enabled: false }, deps())).rejects.toThrow(/disabled/);
+  await pg.query("UPDATE destination_relays SET state=$1,attempts=1,provider_id=$2", [state, providerId]);
+}
 describe("durable restricted CCTP relay", () => {
-  it("uses a distinct deterministic UUID and submits only the exact destination call after persistence", async () => {
-    const d = deps(),
-      original = d.runner.getMockImplementation()!;
-    d.runner.mockImplementation(async (args: string[]) => {
-      if (args[1] === "execute") {
-        const row = (
-          await pg.query<{ state: string; attempts: number }>(
-            "SELECT state,attempts FROM destination_relays",
-          )
-        ).rows[0];
-        expect(row).toMatchObject({ state: "submitting", attempts: 1 });
-      }
-      return original(args);
-    });
-    const first = await runDestinationRelay(db, payment, permit, config, d);
-    expect(first.finalized).toBe(false);
-    const relayId = relayOperationId(org, paymentId, 8453);
+  it.each([
+    { label: "mainnet", sourceChainId: 1, destinationChainId: 8453, circleChain: "BASE", testnet: false },
+    { label: "testnet cross-chain", sourceChainId: 5042002, destinationChainId: 84532, circleChain: "BASE-SEPOLIA", testnet: true },
+  ])("disables every fresh $label relay broadcast even when configuration enables it", async (network) => {
+    const candidate = { ...config, sourceChainId: network.sourceChainId, destinationChainId: network.destinationChainId, circle: { ...config.circle, chain: network.circleChain }, testnet: network.testnet };
+    const candidatePermit = { ...permit, chainId: String(network.sourceChainId), sourceChainId: String(network.sourceChainId), destinationChainId: String(network.destinationChainId) };
+    await pg.query("UPDATE payment_intents SET permit=$1", [JSON.stringify({ modulePermit: candidatePermit })]);
+    const d = deps({ circleChain: network.circleChain });
+    await expect(runDestinationRelay(db, { ...payment, permit: { modulePermit: candidatePermit } }, candidatePermit, candidate, d)).rejects.toThrow(/relay submission is disabled/i);
+    expect(d.runner).not.toHaveBeenCalled();
+    const relayId = relayOperationId(org, paymentId, network.destinationChainId);
     expect(relayId).not.toBe(paymentId);
-    expect(relayId).toMatch(
-      /^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/,
-    );
-    const call = d.runner.mock.calls.find((c) => c[0][1] === "execute")![0];
-    expect(call).toEqual([
-      "wallet",
-      "execute",
-      "receiveMessage(bytes,bytes)",
-      message(),
-      attestation,
-      "--contract",
-      c,
-      "--address",
-      c,
-      "--chain",
-      "BASE",
-      "--amount",
-      "0",
-      "--idempotency-key",
-      relayId,
-      "--output",
-      "json",
-    ]);
-    const second = await runDestinationRelay(db, payment, permit, config, d);
-    expect(second).toEqual({ finalized: true, transaction: destination });
-    expect(
-      d.runner.mock.calls.filter((c) => c[0][1] === "execute"),
-    ).toHaveLength(1);
+    expect(relayId).toMatch(/^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+    const stored = (await pg.query<{ id: string; state: string; attempts: number }>("SELECT id,state,attempts FROM destination_relays")).rows;
+    expect(stored).toEqual([{ id: relayId, state: "prepared", attempts: 0 }]);
   });
-  it("persists unknown timeout and never blindly resubmits after a restart", async () => {
-    const d = deps({ timeout: true });
-    await runDestinationRelay(db, payment, permit, config, d);
+  it("preserves an unknown existing operation and never blindly resubmits after a restart", async () => {
+    await existingRelay("uncertain");
     const next = deps();
     const result = await runDestinationRelay(db, payment, permit, config, next);
     expect(result.finalized).toBe(false);
-    expect(next.runner.mock.calls.some((c) => c[0][1] === "execute")).toBe(
-      false,
-    );
-    expect(
-      (
-        await pg.query<{ state: string }>(
-          "SELECT state FROM destination_relays",
-        )
-      ).rows[0].state,
-    ).toBe("uncertain");
+    expect(next.runner).not.toHaveBeenCalled();
+    expect((await pg.query<{ state: string; attempts: number }>("SELECT state,attempts FROM destination_relays")).rows).toEqual([{ state: "uncertain", attempts: 1 }]);
   });
   it("requires independently verified destination effect after authenticated transaction attachment", async () => {
-    await runDestinationRelay(
-      db,
-      payment,
-      permit,
-      config,
-      deps({ timeout: true }),
-    );
-    await attachDestinationRelayTransaction(
-      db,
-      { wallet: a, organizationId: org, role: "operator" },
-      paymentId,
-      destination,
-      "Recovered the existing Circle relay transaction",
-    );
-    await expect(
-      runDestinationRelay(
-        db,
-        payment,
-        permit,
-        config,
-        deps({ verifyFails: true }),
-      ),
-    ).rejects.toThrow(/Wrong destination/);
-    expect(
-      (
-        await pg.query<{ state: string }>(
-          "SELECT state FROM destination_relays",
-        )
-      ).rows[0].state,
-    ).not.toBe("settled");
-    expect(
-      (await runDestinationRelay(db, payment, permit, config, deps()))
-        .finalized,
-    ).toBe(true);
+    await existingRelay("uncertain");
+    await attachDestinationRelayTransaction(db, { wallet: a, organizationId: org, role: "operator" }, paymentId, destination, "Recovered the existing Circle relay transaction");
+    const wrong = deps({ verifyFails: true });
+    await expect(runDestinationRelay(db, payment, permit, config, wrong)).rejects.toThrow(/Wrong destination/);
+    expect(wrong.runner).not.toHaveBeenCalled();
+    expect((await pg.query<{ state: string }>("SELECT state FROM destination_relays")).rows[0].state).not.toBe("settled");
+    const valid = deps();
+    expect((await runDestinationRelay(db, payment, permit, config, valid)).finalized).toBe(true);
+    expect(valid.runner).not.toHaveBeenCalled();
   });
   it("rejects tenant/permit/route mismatch and zero-fee violations without submission", async () => {
     const d = deps();
-    await expect(
-      runDestinationRelay(
-        db,
-        { ...payment, organization_id: "99999999-9999-4999-8999-999999999999" },
-        permit,
-        config,
-        d,
-      ),
-    ).rejects.toThrow();
-    await expect(
-      runDestinationRelay(db, payment, { ...permit, maxFee: "1" }, config, d),
-    ).rejects.toThrow();
-    await expect(
-      runDestinationRelay(
-        db,
-        payment,
-        permit,
-        config,
-        deps({ message: message(a) }),
-      ),
-    ).rejects.toThrow(/matching/);
+    await expect(runDestinationRelay(db, { ...payment, organization_id: "99999999-9999-4999-8999-999999999999" }, permit, config, d)).rejects.toThrow();
+    await expect(runDestinationRelay(db, payment, { ...permit, maxFee: "1" }, config, d)).rejects.toThrow();
+    await expect(runDestinationRelay(db, payment, permit, config, deps({ message: message(a) }))).rejects.toThrow(/matching/);
+    await expect(runDestinationRelay(db, payment, permit, config, deps({ message: message(b, 1n) }))).rejects.toThrow(/matching/);
     expect(d.runner).not.toHaveBeenCalled();
   });
   it("waits for attestation and rejects a changed route configuration for an existing relay", async () => {
     const d = deps({ complete: false });
-    expect(
-      (await runDestinationRelay(db, payment, permit, config, d)).finalized,
-    ).toBe(false);
+    expect((await runDestinationRelay(db, payment, permit, config, d)).finalized).toBe(false);
     expect(d.runner).not.toHaveBeenCalled();
-    await expect(
-      runDestinationRelay(
-        db,
-        payment,
-        permit,
-        { ...config, destinationTransmitter: b },
-        deps(),
-      ),
-    ).rejects.toThrow(/binding/);
+    await expect(runDestinationRelay(db, payment, permit, { ...config, destinationTransmitter: b }, deps())).rejects.toThrow(/binding/);
   });
-  it("allows reconciliation with submission disabled but never new execution", async () => {
+  it("blocks fresh execution when relay submission is disabled in configuration", async () => {
     const d = deps();
-    await expect(
-      runDestinationRelay(
-        db,
-        payment,
-        permit,
-        { ...config, enabled: false },
-        d,
-      ),
-    ).rejects.toThrow(/disabled/);
-    expect(d.runner.mock.calls.some((c) => c[0][1] === "execute")).toBe(false);
-  });
-  it("keeps already submitted reconciliation available when relay submission is disabled", async () => {
-    await runDestinationRelay(db, payment, permit, config, deps());
-    const d = deps();
-    expect(
-      (
-        await runDestinationRelay(
-          db,
-          payment,
-          permit,
-          { ...config, enabled: false },
-          d,
-        )
-      ).finalized,
-    ).toBe(true);
-    expect(d.runner.mock.calls.some((c) => c[0][1] === "execute")).toBe(false);
-  });
-  it("requires real source confirmation and current reviewed destination configuration before attempting submission", async () => {
-    const d = deps();
-    d.verifySource = vi.fn(async () => ({
-      finalized: false,
-      transaction: source,
-      blockHash: source,
-      blockNumber: "100",
-      crossChain: true,
-    }));
-    await expect(
-      runDestinationRelay(db, payment, permit, config, d),
-    ).rejects.toThrow(/source finality/);
+    await expect(runDestinationRelay(db, payment, permit, { ...config, enabled: false }, d)).rejects.toThrow(/disabled/);
     expect(d.runner).not.toHaveBeenCalled();
-    await expect(
-      runDestinationRelay(
-        db,
-        payment,
-        permit,
-        {
-          ...config,
-          review: { ...config.review, expiresAt: "2020-01-01T00:00:00Z" },
-        },
-        deps(),
-      ),
-    ).rejects.toThrow(/expired/);
-    expect(
-      (
-        await pg.query<{ attempts: number }>(
-          "SELECT attempts FROM destination_relays",
-        )
-      ).rows[0].attempts,
-    ).toBe(0);
   });
-  it("prevents concurrent submitters and cross-tenant transaction attachment", async () => {
+  it("keeps provider lookup and reconciliation available with submission disabled and expired evidence", async () => {
+    await existingRelay("submitted", "relay-provider");
     const d = deps();
-    await Promise.all([
+    expect((await runDestinationRelay(db, payment, permit, { ...config, enabled: false, review: { ...config.review, expiresAt: "2020-01-01T00:00:00Z" } }, d)).finalized).toBe(true);
+    expect(d.runner.mock.calls).toHaveLength(1);
+    expect(d.runner.mock.calls.every(([args]) => args[0] === "transaction" && args[1] === "list")).toBe(true);
+    expect((await pg.query<{ state: string; attempts: number }>("SELECT state,attempts FROM destination_relays")).rows).toEqual([{ state: "settled", attempts: 1 }]);
+  });
+  it("requires real source confirmation and blocks fresh sends even if review evidence has expired", async () => {
+    const d = deps();
+    d.verifySource = vi.fn(async () => ({ finalized: false, transaction: source, blockHash: source, blockNumber: "100", crossChain: true }));
+    await expect(runDestinationRelay(db, payment, permit, config, d)).rejects.toThrow(/source finality/);
+    expect(d.runner).not.toHaveBeenCalled();
+    await expect(runDestinationRelay(db, payment, permit, { ...config, review: { ...config.review, expiresAt: "2020-01-01T00:00:00Z" } }, deps())).rejects.toThrow(/disabled/);
+    expect((await pg.query<{ attempts: number }>("SELECT attempts FROM destination_relays")).rows[0].attempts).toBe(0);
+  });
+  it("blocks concurrent new relay broadcasts and cross-tenant transaction attachment", async () => {
+    const d = deps();
+    const outcomes = await Promise.allSettled([
       runDestinationRelay(db, payment, permit, config, d),
       runDestinationRelay(db, payment, permit, config, d),
     ]);
-    expect(
-      d.runner.mock.calls.filter((c) => c[0][1] === "execute"),
-    ).toHaveLength(1);
-    await expect(
-      attachDestinationRelayTransaction(
-        db,
-        {
-          wallet: a,
-          organizationId: "99999999-9999-4999-8999-999999999999",
-          role: "operator",
-        },
-        paymentId,
-        destination,
-        "Existing relay transaction",
-      ),
-    ).rejects.toThrow();
+    expect(outcomes.every((result) => result.status === "rejected" && /disabled/.test(String(result.reason)))).toBe(true);
+    expect(d.runner).not.toHaveBeenCalled();
+    expect((await pg.query<{ attempts: number }>("SELECT attempts FROM destination_relays")).rows).toEqual([{ attempts: 0 }]);
+    await expect(attachDestinationRelayTransaction(db, { wallet: a, organizationId: "99999999-9999-4999-8999-999999999999", role: "operator" }, paymentId, destination, "Existing relay transaction")).rejects.toThrow();
   });
 });

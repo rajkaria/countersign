@@ -14,6 +14,7 @@ import {
   type DestinationRelayConfig,
 } from "../integrations/relay";
 import { boundedJson, type Fetcher } from "../integrations/http";
+import { assertTestnetExecutionNetwork } from "../integrations/execution-network";
 import { readModelConfiguration, type ModelConfiguration } from "../integrations/model-provider";
 import type { Database } from "./db";
 
@@ -33,6 +34,7 @@ export type ActivationReport = {
   probesRequested: boolean;
   workspaceConfigured: boolean;
   executionConfigured: boolean;
+  mainnetEnabled: false;
   databaseVerified: boolean;
   deploymentVerified: boolean;
   financialActivationVerified: false;
@@ -135,6 +137,11 @@ export function inspectActivation(options: InspectionOptions = {}): ActivationRe
   const manifest = currentManifest(rawManifest, now);
   const manifestPathOnly = rawManifest === undefined && configured(env.EXECUTION_MANIFEST_PATH);
   add("manifest.configuration", manifest ? "configured" : manifestPathOnly ? "configured" : rawManifest !== undefined ? "invalid" : "missing", "execution", manifest ? "Manifest structure and validity window pass local checks. Claims still require chain readback and review." : manifestPathOnly ? "Manifest path is configured; the pure inspector has not read its contents." : "A current, schema-valid deployment evidence manifest is required; flags cannot replace it.", "Complete the manifest using genuine deployment, compatibility, recovery and review evidence.");
+  let networkAllowed = false;
+  if (manifest) {
+    try { assertTestnetExecutionNetwork(manifest); networkAllowed = true; } catch { /* Only the authored network boundary is reported. */ }
+  }
+  add("execution.network", manifest ? networkAllowed ? "configured" : "invalid" : "missing", "execution", "New payments are restricted in code to direct Arc testnet canonical 6-decimal USDC (chain 5042002, ARC-TESTNET). Mainnet and new cross-chain submissions are disabled regardless of environment flags.", "Use a current testnet manifest with the canonical token. No environment setting enables mainnet in this release.");
   const bindings: [string, string][] = manifest ? [["SAFE_ADDRESS", manifest.safe], ["COUNTERSIGN_MODULE_ADDRESS", manifest.module], ["USDC_TOKEN_ADDRESS", manifest.token], ["CIRCLE_AGENT_WALLET", manifest.circleWallet], ["CIRCLE_CHAIN", manifest.circleChain], ["EXECUTION_ORGANIZATION_ID", manifest.organizationId], ["SOURCE_CHAIN_ID", String(manifest.chainId)]] : [];
   const bound = Boolean(manifest && (!options.organizationId || manifest.organizationId === options.organizationId) && bindings.every(([name, value]) => !configured(env[name]) || same(env[name]!, value)));
   add("manifest.binding", manifest ? bound ? "configured" : "invalid" : "missing", "execution", "Configured deployment identities must match the reviewed manifest; unset identities are supplied from that manifest by the worker.", "Resolve any source-chain, organization, token, Safe, module or Circle identity conflict.");
@@ -163,13 +170,14 @@ export function inspectActivation(options: InspectionOptions = {}): ActivationRe
   const rawRelay = options.relay !== undefined ? options.relay : inlineJson(env.RELAY_CONFIG_JSON);
   const relay = currentRelay(rawRelay, now);
   const relayBinding = Boolean(relay && manifest && relay.organizationId === manifest.organizationId && relay.sourceChainId === manifest.chainId && same(relay.sourceModule, manifest.module) && same(relay.sourceSafe, manifest.safe) && same(relay.sourceToken, manifest.token) && relay.testnet === manifest.testnet && validHttp(relay.sourceRpcUrl) && validHttp(relay.destinationRpcUrl) && !same(relay.circle.wallet, manifest.verifier));
-  add("relay.configuration", rawRelay !== undefined ? relay && relayBinding ? relay.enabled ? "configured" : "disabled" : "invalid" : configured(env.RELAY_CONFIG_PATH) ? "configured" : "disabled", "optional", "A destination relay needs a current reviewed route bound to the source manifest; direct payments do not require a relay.", "Populate the relay template with verified route/code/wallet evidence; source burn does not establish destination settlement.");
+  add("relay.configuration", rawRelay !== undefined && !(relay && relayBinding) ? "invalid" : "disabled", "optional", "New cross-chain relay broadcasts are disabled in this release, including testnet routes. Existing source, provider and destination evidence can still be reconciled using original operation identities.", "Keep relay submission disabled. Source burn does not establish destination settlement; retain and reconcile original evidence.");
   add("owner.restore", "owner_action", "operations", "Backup presence is not proof of restore. Key recovery and original payment/outbox/relay identities require an isolated restore rehearsal.", "Run db:restore:verify before and after an isolated database restore, then authenticate and decrypt a consented fixture with execution disabled.");
   add("owner.financial", "owner_action", "execution", "Monetary authorization, independent security/recovery review, funding, provider terms, protection reserves and pilot consent are outside this diagnostic.", "Complete the owner checklist in docs/activation.md before monetary activation.");
   return {
     schemaVersion: 1, checkedAt: now.toISOString(), profile, probesRequested: false,
     workspaceConfigured: db && (profile === "worker" || (documentKey && origin)),
-    executionConfigured: db && (profile === "worker" || (documentKey && origin)) && Boolean(manifest) && bound && separated && rpcConfigured && enabled && !custodyInvalid && (profile === "worker" ? circleProfilePresent : verifierBound),
+    executionConfigured: db && (profile === "worker" || (documentKey && origin)) && Boolean(manifest) && networkAllowed && bound && separated && rpcConfigured && enabled && !custodyInvalid && (profile === "worker" ? circleProfilePresent : verifierBound),
+    mainnetEnabled: false,
     databaseVerified: false, deploymentVerified: false, financialActivationVerified: false, checks,
     limitations: ["Configured means a local structure check, not a working integration.", "Read-only probes cannot certify independent audit findings, provider terms, customer consent, protection capital or monetary authorization.", "No signing, transaction submission, model generation, provisioning, notification delivery or funding occurs."],
   };
