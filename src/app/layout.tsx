@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./product-refinements.css";
 import { siteOrigin } from "@/lib/content/guides";
 import localFont from "next/font/local";
 const dmSans = localFont({
@@ -15,7 +16,7 @@ const manrope = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
   title: {
-    default: "Countersign — Every payment, accounted for.",
+    default: "Countersign — Every payment. The full picture.",
     template: "%s · Countersign",
   },
   description:
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f6f7f0",
+  themeColor: "#f7f9f5",
 };
 export default function RootLayout({
   children,

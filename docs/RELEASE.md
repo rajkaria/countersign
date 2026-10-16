@@ -1,5 +1,15 @@
 # Release verification and activation
 
+## 16 October 2026 — 0.8.0 interface and handbook
+
+The homepage uses a clearer finance composition with agreement, verification, capacity and receipt graphics. Shared semantic tokens align the sample workspace, console, sign-in and review surfaces. Mobile marketing navigation and a three-step walkthrough index improve orientation.
+
+The handbook now has a task-based home, all 34 guides in a grouped directory, larger reading text, mobile topic groups and page outlines, and Cmd/Ctrl+K keyboard search with ArrowDown result focus. New payment-lifecycle and troubleshooting guides explain both the reasoning and the responsible next action. Interactive teaching diagrams show ASK, HOLD and PAY in Observe mode; they are visibly illustrative and issue no provider requests. Existing raw Markdown, search, canonical metadata, article schema and LLM exports remain derived from the public allowlist.
+
+Onboarding and the homepage now reflect the already activated synthetic storage, while financial execution stays disabled. No wallet, payment, notice, paid model request, worker extension, public-source visibility or event-submission change is part of this release. Exact release validation and deployment readbacks are retained in the private handoff.
+
+Local release checks: Node 22 application gate (305 tests across 37 files), 32 Foundry tests, TypeScript, lint, production build and repository boundary pass. All 74 desktop/mobile browser cases pass, including tablet header layout, mobile text-input sizing, keyboard search, original review/recovery flows and the illustrative diagram's zero mutation requests. A scoped automated WCAG 2A/AA/2.1AA and overflow review passes 39 page/state/viewport combinations at 1440, 720, 390 and 320px, including open search, mobile topic navigation and the PAY teaching state. No browser page errors were observed in that review. These checks are not comprehensive accessibility certification or financial activation evidence. The separate financial-provider dependency gate remains unresolved.
+
 ## 16 October 2026 — 0.7.0 domain and demo completion
 
 The canonical URL is https://www.usecountersign.xyz, with the owner's Vercel apex redirect from usecountersign.xyz. Current metadata, structured data, sitemap, robots, LLM links and authentication origin agree. The old Vercel alias redirects to the canonical host so browser sign-in begins on the permitted origin.
@@ -42,30 +52,30 @@ The landing page, documentation and isolated synthetic workspace are deployed. T
 
 The following mapping separates software evidence from live acceptance. Local mocks, synthetic examples and PGlite do not establish real business usage or chain/provider compatibility.
 
-| Scenario | Implemented evidence | External verification still required |
-| --- | --- | --- |
-| A01 Read-only intake | Tenant records, CSV dry-run/import, documents, read-only Safe adapter, console | Dedicated database and pilot invoice |
-| A02 Extraction and activation | Complete-source agreement/invoice proposals with binary transport and provenance; owner-only versioned activation | Model credentials and consented source document |
-| A03 Routine obligation | Verifier, standing worker, exact permits, reconciliation, ledger/export | Circle/Safe compatibility, deployed controls, authorized funds |
-| A04 Renamed duplicate | Semantic obligation identity and allocation checks | Pilot replay |
-| A05 Recurrence/amendment | Period identity, effective dates, versioned owner amendments | Consented recurring business sample |
-| A06 Missing acceptance | Allowlisted customer acceptance, stale/version checks and holds | Customer acceptor validation |
-| A07 Destination attack | Trusted register, two-stage fresh-auth change workflow, invalidation | Independent reviewer practice |
-| A08 Partial payment | Exact hourly quantities and partial requests, remaining amount, same-amount retry identity and cumulative caps | Real partial settlement and bookkeeping sign-off |
-| A09 Competing obligations | Shared-Safe confirmed-cash planner, pending allocations and reserves | Current Safe balances and approved reserves |
-| A10 New revenue | Periodic finalized observation refresh and plan reassessment | Live confirmed inflow |
-| A11 Parallel attempts | Database uniqueness/locks/leases and on-chain replay/caps | Deployment-specific contention test |
-| A12 Uncertain broadcast | Persisted operation IDs, uncertain/recovery states, same-identity lookup | Provider timeout/recovery exercise |
-| A13 Cross-chain finality | Exact CCTP binding, durable relay, destination mint verification | Supported route/wallet, source and destination transactions |
-| A14 Stale authority | Record versions, permit hashes, contract epoch/replay checks | On-chain policy update/revocation exercise |
-| A15 Manual payment | Owner-backed history reconciliation and explicit invoice allocation | Customer history scope and source evidence |
-| A16 Outage/recovery | Fail-closed gates, independent Safe controls, recovery lab/runbook | Independent owner drill with deployed controls |
-| A17 Isolation | Membership predicates, scoped vendor tokens, encrypted tenant documents | Production access and restore review |
-| A18 Reserve/claims | Fully collateralized liability accounting, pending claims, duplicate guards | Capital, legal terms, independent reviewer, deployment |
-| A19 Receipt tamper | Canonical receipt verifier, exact bound fields and signature checks | Trusted external checkpoint and chain readback |
-| A20 Demo separation | Separate synthetic browser sandbox and authenticated PostgreSQL APIs | Passed in deployed browser checks |
-| A21 Accounting | Integer units, balanced/reversal events, period packs with unresolved/unattributed settlement warnings, escaped CSV and references | Bookkeeper approval and real bank/chain reconciliation |
-| A22 Human override | Scoped owner hold/clear, version/audit record, fresh sign-in, coverage notice | Customer recovery training |
+| Scenario                      | Implemented evidence                                                                                                               | External verification still required                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| A01 Read-only intake          | Tenant records, CSV dry-run/import, documents, read-only Safe adapter, console                                                     | Dedicated database and pilot invoice                           |
+| A02 Extraction and activation | Complete-source agreement/invoice proposals with binary transport and provenance; owner-only versioned activation                  | Model credentials and consented source document                |
+| A03 Routine obligation        | Verifier, standing worker, exact permits, reconciliation, ledger/export                                                            | Circle/Safe compatibility, deployed controls, authorized funds |
+| A04 Renamed duplicate         | Semantic obligation identity and allocation checks                                                                                 | Pilot replay                                                   |
+| A05 Recurrence/amendment      | Period identity, effective dates, versioned owner amendments                                                                       | Consented recurring business sample                            |
+| A06 Missing acceptance        | Allowlisted customer acceptance, stale/version checks and holds                                                                    | Customer acceptor validation                                   |
+| A07 Destination attack        | Trusted register, two-stage fresh-auth change workflow, invalidation                                                               | Independent reviewer practice                                  |
+| A08 Partial payment           | Exact hourly quantities and partial requests, remaining amount, same-amount retry identity and cumulative caps                     | Real partial settlement and bookkeeping sign-off               |
+| A09 Competing obligations     | Shared-Safe confirmed-cash planner, pending allocations and reserves                                                               | Current Safe balances and approved reserves                    |
+| A10 New revenue               | Periodic finalized observation refresh and plan reassessment                                                                       | Live confirmed inflow                                          |
+| A11 Parallel attempts         | Database uniqueness/locks/leases and on-chain replay/caps                                                                          | Deployment-specific contention test                            |
+| A12 Uncertain broadcast       | Persisted operation IDs, uncertain/recovery states, same-identity lookup                                                           | Provider timeout/recovery exercise                             |
+| A13 Cross-chain finality      | Exact CCTP binding, durable relay, destination mint verification                                                                   | Supported route/wallet, source and destination transactions    |
+| A14 Stale authority           | Record versions, permit hashes, contract epoch/replay checks                                                                       | On-chain policy update/revocation exercise                     |
+| A15 Manual payment            | Owner-backed history reconciliation and explicit invoice allocation                                                                | Customer history scope and source evidence                     |
+| A16 Outage/recovery           | Fail-closed gates, independent Safe controls, recovery lab/runbook                                                                 | Independent owner drill with deployed controls                 |
+| A17 Isolation                 | Membership predicates, scoped vendor tokens, encrypted tenant documents                                                            | Production access and restore review                           |
+| A18 Reserve/claims            | Fully collateralized liability accounting, pending claims, duplicate guards                                                        | Capital, legal terms, independent reviewer, deployment         |
+| A19 Receipt tamper            | Canonical receipt verifier, exact bound fields and signature checks                                                                | Trusted external checkpoint and chain readback                 |
+| A20 Demo separation           | Separate synthetic browser sandbox and authenticated PostgreSQL APIs                                                               | Passed in deployed browser checks                              |
+| A21 Accounting                | Integer units, balanced/reversal events, period packs with unresolved/unattributed settlement warnings, escaped CSV and references | Bookkeeper approval and real bank/chain reconciliation         |
+| A22 Human override            | Scoped owner hold/clear, version/audit record, fresh sign-in, coverage notice                                                      | Customer recovery training                                     |
 
 ## Gate assessment
 

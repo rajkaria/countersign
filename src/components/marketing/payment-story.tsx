@@ -163,8 +163,8 @@ export function PaymentStory() {
         <strong>{scene.title}</strong>
         <p>{scene.description}</p>
       </div>
-      <Link href="/workspace/cases" className="story-link">
-        Try the full review <ArrowUpRight size={15} />
+      <Link href="/review" className="story-link">
+        Try the guided walkthrough <ArrowUpRight size={15} />
       </Link>
       <p className="story-disclaimer">
         ILLUSTRATIVE WORKFLOW · SYNTHETIC DATA · NO FUNDS MOVE

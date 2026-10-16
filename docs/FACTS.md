@@ -1,6 +1,10 @@
 # Release status
 
-Updated 16 October 2026 for software version 0.7.0. This page distinguishes software capability from externally verified production operation.
+Updated 16 October 2026 for software version 0.8.0. This page distinguishes software capability from externally verified production operation.
+
+## Finding your way
+
+The [handbook home](/docs) organizes all 34 public guides by task and topic. Start with the [guided walkthrough](/review), [your first review](/docs/getting-started) or [the API](/docs/api). A new [payment lifecycle guide](/docs/payment-lifecycle) connects the steps; [Resolve a finding](/docs/troubleshooting) gives responsible people and next actions. Interactive handbook diagrams are explicitly illustrative and create no model, wallet or payment request. Raw Markdown, search and the full LLM corpus use the same allowlisted guide sources.
 
 ## Current hosting
 

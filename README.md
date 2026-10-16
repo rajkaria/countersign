@@ -6,7 +6,9 @@ Countersign checks invoices against approved agreements, customer acceptance and
 
 Explore the isolated synthetic workspace without a wallet. The authenticated workspace starts read-only; no sign-in signature gives Countersign access to funds. Source is private at the owner's request.
 
-Version 0.7.0 supports DeepSeek and OpenAI, a private explicitly opted-in actual-model comparison, external EOA sign-in and a clarification loop that reruns deterministic verification after a human answer. A dedicated database and bounded operations host are active with explicitly synthetic records; financial execution remains gated. The reproducible reviewer walkthrough, original proposal provenance, production-planner demo and expiry/Arc observation safeguards remain available. Owner-visible setup, exact schema readiness, scoped operations review and a private pilot measurement kit remain available. Open **Setup** after owner sign-in to distinguish configuration from database readback and external financial authorization.
+Version 0.8.0 adds a refreshed finance interface, explanatory agreement/check/capacity/receipt graphics, a task-based handbook home and 34 public guides. Interactive teaching diagrams explain ASK, HOLD and PAY; keyboard search, grouped mobile navigation and a mobile page outline make the detail easier to find. The guided demo remains the consistent first entry.
+
+DeepSeek and OpenAI support, explicitly opted-in actual-model comparisons, external EOA sign-in and source-cited clarification remain available. A dedicated database and bounded operations host are active with explicitly synthetic records; financial execution remains gated. Open **Setup** after owner sign-in to distinguish configuration, database readback and external financial authorization. See [release status](https://www.usecountersign.xyz/docs/release-status) for exact availability.
 
 ## Review in three minutes
 
@@ -88,7 +90,7 @@ The implementation uses Next.js, TypeScript, PostgreSQL, viem, Circle CLI integr
 
 ## Public handbook and machine-readable documentation
 
-The handbook at `/docs` contains 32 guides and articles with full-text search, section links, copy-as-Markdown, and mobile navigation. Topics cover intake through settlement, operational controls, API usage, and practical adoption. The same allowlisted Markdown files power every reading surface.
+The handbook at `/docs` contains 34 guides and articles with a task-based home, full-text keyboard search, section links, copy-as-Markdown, grouped mobile navigation and page outlines. Topics cover intake through settlement, operational controls, API usage and practical adoption. The same allowlisted Markdown files power every reading surface.
 
 - `/llms.txt` is the discovery index, with descriptions and absolute Markdown links.
 - `/llms-full.txt` contains the complete public handbook, with source URLs and availability boundaries.

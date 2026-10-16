@@ -24,11 +24,18 @@ function inline(text: string): ReactNode[] {
       return part;
     });
 }
-export function Markdown({ content }: { content: string }) {
+export function Markdown({
+  content,
+  afterIntroduction,
+}: {
+  content: string;
+  afterIntroduction?: ReactNode;
+}) {
   const blocks: ReactNode[] = [];
   const lines = content.split("\n");
   const outline = headings(content);
   let headingIndex = 0;
+  let introductionInserted = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.startsWith("```")) {
@@ -156,6 +163,10 @@ export function Markdown({ content }: { content: string }) {
     )
       paragraph.push(lines[++i]);
     blocks.push(<p key={i}>{inline(paragraph.join(" "))}</p>);
+    if (afterIntroduction && !introductionInserted) {
+      blocks.push(<div key="after-introduction">{afterIntroduction}</div>);
+      introductionInserted = true;
+    }
   }
   return blocks;
 }

@@ -1,0 +1,286 @@
+/* Shared product chrome. Domain state and financial controls remain in their components. */
+.site-header nav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.site-mobile-menu {
+  display: none;
+}
+.site-mobile-menu summary {
+  list-style: none;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.site-mobile-menu summary::-webkit-details-marker {
+  display: none;
+}
+.site-mobile-menu nav {
+  position: absolute;
+  right: 22px;
+  top: 67px;
+  min-width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 15px 40px #173e3215;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 50;
+}
+.site-header .site-mobile-menu nav {
+  display: flex;
+}
+.site-mobile-menu nav a {
+  padding: 8px 13px;
+  font-size: 14px;
+  border-radius: 4px;
+}
+.site-mobile-menu nav a:hover {
+  background: var(--surface-soft);
+}
+.workspace,
+.live-shell {
+  background: var(--paper);
+}
+.sidebar,
+.live-sidebar {
+  background: #eef3ed;
+  border-color: var(--line);
+}
+.sidebar nav > a {
+  min-height: 43px;
+  font-size: 13px;
+  border-radius: 6px;
+  gap: 11px;
+}
+.sidebar nav > a.active {
+  background: #dceadf;
+  color: var(--ink);
+  font-weight: 650;
+}
+.sidebar-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+.workspace-selector {
+  background: #f8faf6;
+  border-color: var(--line);
+  border-radius: 7px;
+}
+.workspace-selector strong {
+  font-size: 13px;
+}
+.workspace-selector div > span {
+  font-size: 11px;
+}
+.workspace-header {
+  height: 75px;
+  background: #fff;
+  border-color: var(--line);
+}
+.breadcrumb,
+.header-right,
+.help-link {
+  font-size: 12px;
+}
+.sandbox-banner {
+  font-size: 12px;
+  line-height: 1.7;
+  background: #e9f0e4;
+  color: #4a6349;
+}
+.workspace-content {
+  padding-top: 38px;
+}
+.page-heading h1 {
+  font-size: 32px;
+  letter-spacing: -0.05em;
+}
+.workspace-content .panel,
+.workspace-content .stat-card {
+  border-color: var(--line);
+  box-shadow: none;
+  border-radius: 8px;
+}
+.workspace-content .panel-heading h2 {
+  font-size: 17px;
+}
+.workspace-content .panel-heading p {
+  font-size: 12px;
+}
+.workspace-content table {
+  font-size: 13px;
+}
+.workspace-content .table-scroll {
+  position: relative;
+}
+.workspace-content th {
+  font-size: 11px;
+}
+.workspace-content td {
+  padding-block: 17px;
+}
+.workspace-content .vendor-info strong {
+  font-size: 13px;
+}
+.workspace-content .vendor-info > span {
+  font-size: 11px;
+}
+.workspace-content .badge {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+.live-sidebar nav > button {
+  font-size: 13px;
+  min-height: 42px;
+  border-radius: 5px;
+}
+.live-sidebar nav > button.active {
+  background: #deeadf;
+  color: var(--ink);
+}
+.live-content h1 {
+  font-size: 32px;
+  letter-spacing: -0.05em;
+}
+.live-shell .panel {
+  border-color: var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.live-shell .panel-heading h2 {
+  font-size: 17px;
+}
+.live-shell .console-context {
+  font-size: 13px;
+}
+.live-shell .console-facts {
+  font-size: 13px;
+}
+.live-shell .console-review {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  border-radius: 8px;
+}
+.live-shell .console-review p {
+  font-size: 13px;
+}
+.live-shell .console-balance {
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+.live-shell .console-balance span {
+  font-size: 11px;
+}
+.live-shell .console-balance strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.live-shell .console-finding {
+  border: 1px solid #ead8bd;
+  border-radius: 6px;
+  background: #fffaf0;
+}
+.live-shell .console-finding.info {
+  border-color: var(--line);
+  background: #fff;
+}
+.account-page {
+  background:
+    radial-gradient(ellipse at 70% 25%, #dfeadf77, transparent 50%),
+    var(--paper);
+}
+.account-card {
+  border-color: var(--line);
+  box-shadow: 0 20px 70px -35px #173e3222;
+  border-radius: 12px;
+}
+.account-card h1 {
+  letter-spacing: -0.055em;
+  line-height: 1.14;
+}
+.account-card > p {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.account-card .button {
+  min-height: 46px;
+}
+@media (max-width: 1050px) {
+  .site-header .site-desktop-nav {
+    gap: 17px;
+  }
+  .site-header .site-desktop-nav a {
+    font-size: 12px;
+  }
+}
+@media (max-width: 900px) {
+  .site-header .site-desktop-nav {
+    display: none;
+  }
+  .site-mobile-menu {
+    display: block;
+  }
+  .site-header .header-demo {
+    margin-left: auto;
+  }
+  .sidebar nav > a {
+    font-size: 12px;
+  }
+}
+@media (max-width: 700px) {
+  .site-header .header-demo {
+    display: none;
+  }
+  .site-mobile-menu {
+    margin-left: auto;
+  }
+  .sandbox-banner {
+    font-size: 10px;
+  }
+  .workspace-header {
+    height: 64px;
+  }
+  .breadcrumb {
+    font-size: 11px;
+  }
+  .workspace-content {
+    padding-top: 25px;
+  }
+  .page-heading h1 {
+    font-size: 28px;
+  }
+  .workspace-content table {
+    font-size: 12px;
+  }
+  .workspace-content th {
+    font-size: 10px;
+  }
+  .live-sidebar nav > button {
+    font-size: 12px;
+    min-height: 40px;
+  }
+  .live-sidebar .live-label {
+    font-size: 10px;
+  }
+  .live-content h1 {
+    font-size: 28px;
+  }
+  .account-card {
+    padding: 27px 24px;
+  }
+  .account-card > p {
+    font-size: 14px;
+  }
+}

@@ -538,7 +538,12 @@ export function Workspace({ view = "" }: { view?: string }) {
                   />
                 </label>
               </div>
-              <div className="table-scroll">
+              <div
+                className="table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Invoice queue"
+              >
                 <table className="invoice-table">
                   <thead>
                     <tr>

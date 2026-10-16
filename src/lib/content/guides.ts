@@ -21,7 +21,8 @@ export const guides: Guide[] = [
     title: "Review Countersign",
     file: "reviewer-guide.md",
     group: "Start here",
-    description: "A reproducible product walkthrough, source map and exact evidence boundaries.",
+    description:
+      "A reproducible product walkthrough, source map and exact evidence boundaries.",
   },
   {
     slug: "getting-started",
@@ -30,6 +31,14 @@ export const guides: Guide[] = [
     group: "Start here",
     description:
       "Understand Countersign, explore the demo, and choose an adoption path.",
+  },
+  {
+    slug: "payment-lifecycle",
+    title: "A payment, end to end",
+    file: "payment-lifecycle.md",
+    group: "Start here",
+    description:
+      "Follow an invoice through terms, acceptance, verification, authority and reconciliation.",
   },
   {
     slug: "release-status",
@@ -78,6 +87,14 @@ export const guides: Guide[] = [
     group: "Product guides",
     description:
       "How invoices become eligible, held, or in need of clarification.",
+  },
+  {
+    slug: "troubleshooting",
+    title: "Resolve a finding",
+    file: "troubleshooting.md",
+    group: "Product guides",
+    description:
+      "Find the responsible person and safe next step for holds, missing evidence and uncertain outcomes.",
   },
   {
     slug: "planning",

@@ -4,11 +4,13 @@ Countersign brings agreements, invoices, customer acceptance, and payment histor
 
 ## Explore before connecting anything
 
-The [interactive demo](/workspace) is an isolated synthetic workspace. Review the example invoices, resolve a missing acceptance, inspect the cash plan, and try a recovery scenario. All examples are labeled. Local demo edits may survive refresh in your browser; they are not payment records and cannot spend funds.
+Start with the [guided walkthrough](/review): five synthetic cases use the production verifier. Inspect missing acceptance, changed terms, partial allocations, renamed duplicates and an uncertain original operation. No wallet, model key or funds are required.
+
+Go deeper in the [sample workspace](/workspace). Review invoices, resolve a missing acceptance, inspect the plan and try recovery. Local demo edits may survive refresh in your browser; they are not payment records and cannot spend funds. Read [a payment, end to end](/docs/payment-lifecycle) for the full mental model.
 
 The [private workspace](/login) uses Ethereum wallet sign-in. Signing the authentication message grants no spending rights. No seed phrase or private key is requested. The current login supports externally owned wallets; a Safe connection is a separate read-only record.
 
-For a wallet kept outside the browser, choose **Sign with an external wallet**. Enter its public Ethereum address, create a challenge and copy the exact displayed message. Sign the complete UTF-8 text with EIP-191 (`personal_sign`) in OWS or another EOA wallet, then paste the 65-byte hexadecimal signature and complete sign-in. Keep every line break; do not sign a transaction or a message hash. The challenge expires after five minutes and can be used once. Editing the address discards the old challenge and signature. Address/signature edits pause while the server verifies a signature and creates the normal session cookie. Private keys stay in your wallet; application login grants no spending permission.
+External-wallet signing instructions are below. You can learn the review flow before signing in.
 
 ## Your first review
 
@@ -21,10 +23,10 @@ For a wallet kept outside the browser, choose **Sign with an external wallet**. 
 
 ## Three modes of trust
 
-| Mode | What Countersign can do | What you retain |
-|---|---|---|
-| Observe | Inspect records and explain discrepancies | Every signing right |
-| Prepare | Prepare a fully explained payment proposal | Human transaction approval |
+| Mode     | What Countersign can do                             | What you retain                                          |
+| -------- | --------------------------------------------------- | -------------------------------------------------------- |
+| Observe  | Inspect records and explain discrepancies           | Every signing right                                      |
+| Prepare  | Prepare a fully explained payment proposal          | Human transaction approval                               |
 | Delegate | Execute an eligible payment within installed limits | Safe owners, threshold, pause and independent revocation |
 
 Live delegation is gated until the specific deployment has passed Circle compatibility, Safe installation, chain configuration, independent review, and an explicitly approved allocation. The current [release status](/docs/release-status) states which gates have actually passed.
@@ -39,7 +41,7 @@ Open a case from the invoice. Give it a clear discrepancy and next action. A pri
 
 ## Check deployment readiness first
 
-The public site and demo do not require payment credentials. A real workspace requires a configured durable database and private document encryption. At the documented release, those production services and financial execution were not activated. If sign-in or workspace creation reports a configuration error, use the demo while an operator completes [deployment](/docs/deployment); real records are never stored in a temporary memory fallback.
+The public site and demo do not require payment credentials. A private workspace requires configured durable storage and document encryption. Production storage is activated and has been exercised with a hypothetical workspace, tenant checks and a logical restore. These are synthetic checks, not customer or payment evidence. Financial execution remains disabled. If a configuration error appears, an operator must resolve [deployment readiness](/docs/deployment); real records are never stored in a temporary memory fallback.
 
 `GET /api/health` reports application availability. `GET /api/ready` checks database readiness. Neither proves a Safe module is installed or a payment route is ready. Consult [release status](/docs/release-status) for the verified boundary.
 
@@ -56,31 +58,39 @@ The public site and demo do not require payment credentials. A real workspace re
 
 ## Feature directory
 
-| What you want to do | Guide |
-|---|---|
-| Understand the use case | [Why Countersign](/docs/why-countersign) |
-| Register a vendor or change a destination | [Vendors](/docs/vendors) |
-| Define terms and customer acceptance | [Agreements](/docs/agreements) |
-| Upload, forward or bulk import invoices | [Invoice intake](/docs/invoices) |
-| Explain an approval, hold or evidence request | [Verification](/docs/verification) |
-| Reserve cash for competing obligations | [Planning](/docs/planning) |
-| Reassess standing obligations and operate a worker | [Automation](/docs/automation) |
-| Understand execution and cross-chain delivery | [Payments](/docs/payments) and [relay](/docs/relay) |
-| Reconcile manual payments and export records | [Accounting](/docs/accounting) |
-| Download and independently inspect a decision record | [Receipts](/docs/receipts) |
-| Limit access and recover from failures | [Security](/docs/security) and [recovery](/docs/recovery) |
-| Understand reserved liability and claims | [Protection](/docs/protection) |
-| Integrate an application or assistant | [API](/docs/api) and [agents](/docs/agents) |
-| Deploy and maintain the service | [Deployment](/docs/deployment) and [operations](/docs/operations) |
-| Evaluate whether it helps | [Evidence and evaluation](/docs/evaluation) |
+If a review is blocked, use [Resolve a finding](/docs/troubleshooting) to identify the responsible person and next step.
+
+| What you want to do                                  | Guide                                                             |
+| ---------------------------------------------------- | ----------------------------------------------------------------- |
+| Understand the use case                              | [Why Countersign](/docs/why-countersign)                          |
+| Register a vendor or change a destination            | [Vendors](/docs/vendors)                                          |
+| Define terms and customer acceptance                 | [Agreements](/docs/agreements)                                    |
+| Upload, forward or bulk import invoices              | [Invoice intake](/docs/invoices)                                  |
+| Explain an approval, hold or evidence request        | [Verification](/docs/verification)                                |
+| Reserve cash for competing obligations               | [Planning](/docs/planning)                                        |
+| Reassess standing obligations and operate a worker   | [Automation](/docs/automation)                                    |
+| Understand execution and cross-chain delivery        | [Payments](/docs/payments) and [relay](/docs/relay)               |
+| Reconcile manual payments and export records         | [Accounting](/docs/accounting)                                    |
+| Download and independently inspect a decision record | [Receipts](/docs/receipts)                                        |
+| Limit access and recover from failures               | [Security](/docs/security) and [recovery](/docs/recovery)         |
+| Understand reserved liability and claims             | [Protection](/docs/protection)                                    |
+| Integrate an application or assistant                | [API](/docs/api) and [agents](/docs/agents)                       |
+| Deploy and maintain the service                      | [Deployment](/docs/deployment) and [operations](/docs/operations) |
+| Evaluate whether it helps                            | [Evidence and evaluation](/docs/evaluation)                       |
 
 ## Application role reference
 
-| Role | Typical capabilities |
-|---|---|
-| Owner | Manage vendors, agreements, policies and membership; perform controlled owner actions |
-| Approver | Review/import records, prepare eligible payments and attest when named in the engagement |
+| Role     | Typical capabilities                                                                         |
+| -------- | -------------------------------------------------------------------------------------------- |
+| Owner    | Manage vendors, agreements, policies and membership; perform controlled owner actions        |
+| Approver | Review/import records, prepare eligible payments and attest when named in the engagement     |
 | Operator | Intake, evidence collection, cases, reviews and payment preparation; no agreement activation |
-| Viewer | Inspect authorized records and export accessible payment information |
+| Viewer   | Inspect authorized records and export accessible payment information                         |
 
 Creating vendor correction links requires an owner or approver. Intake-key creation requires an owner. Acceptance requires both an owner/approver role and inclusion in the agreement's acceptor list. Membership administration currently adds or updates approver, operator and viewer roles; it is not a Safe-owner management interface.
+
+## Sign with an external wallet
+
+For a wallet kept outside the browser, choose **Sign with an external wallet** on [sign-in](/login). Enter its public Ethereum address, create a challenge and copy the exact displayed message. Sign the complete UTF-8 text with EIP-191 (`personal_sign`) in OWS or another EOA wallet, then paste the 65-byte hexadecimal signature and complete sign-in.
+
+Keep every line break; do not sign a transaction or a message hash. The challenge expires after five minutes and can be used once. Editing the address discards the old challenge and signature. Address/signature edits pause while the server verifies the signature and creates the normal session cookie. Private keys stay in your wallet. Application login grants no spending permission.

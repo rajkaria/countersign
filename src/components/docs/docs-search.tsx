@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 type Entry = {
   slug: string;
@@ -13,6 +13,17 @@ export function DocsSearch() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState(false);
   const pending = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    function shortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, []);
   const id = useId();
   async function load() {
     if (entries || pending.current) return;
@@ -57,6 +68,7 @@ export function DocsSearch() {
       <div className="handbook-search-input">
         <Search size={16} />
         <input
+          ref={inputRef}
           id={id}
           value={query}
           placeholder="Search the handbook…"
@@ -68,10 +80,22 @@ export function DocsSearch() {
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") setQuery("");
+            if (e.key === "ArrowDown" && results.length > 0) {
+              e.preventDefault();
+              document
+                .getElementById(`${id}-results`)
+                ?.querySelector<HTMLAnchorElement>("a")
+                ?.focus();
+            }
           }}
           aria-controls={terms.length > 0 ? `${id}-results` : undefined}
           autoComplete="off"
         />
+        {!query && (
+          <kbd className="docs-search-shortcut" aria-hidden="true">
+            ⌘ K
+          </kbd>
+        )}
         {query && (
           <button aria-label="Clear search" onClick={() => setQuery("")}>
             <X size={14} />
